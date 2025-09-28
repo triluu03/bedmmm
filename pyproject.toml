@@ -4,7 +4,40 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
+
 dependencies = [
+    "arviz>=0.22.0",
+    "nbformat>=5.10.4",
     "numpy>=2.3.3",
+    "plotly>=6.3.0",
+    "pymc>=5.25.1",
     "scipy>=1.16.1",
 ]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.30.1",
+    "ipywidgets>=8.1.7",
+]
+
+[tool.ruff]
+target-version = "py313"
+src = ["."]
+exclude = []
+line-length = 79
+
+[tool.ruff.lint]
+select = ["D", "E", "F", "I", "C"]
+ignore = [
+    "C405", # Unnecessary `tuple`, `list` literal
+    "C419", # Unnecessary list comprehension
+    "C416", # Unnecessary `list` comprehension (rewrite using `list()`)
+    "C901", # foo is too complex ( XX > 10)
+    "C408", # Unnecessary `dict` call (rewrite as a literal)
+    "C414", # Unnecessary `list` call within `tuple()`
+    "I001", # isort found an import in the wrong position
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
