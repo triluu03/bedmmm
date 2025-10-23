@@ -1,7 +1,7 @@
 [project]
-name = "experiment-design-in-mmm"
+name = "bedmmm"
 version = "0.1.0"
-description = "Add your description here"
+description = "Bayesian experimental design (BED) in Marketing Mix Modeling (MMM)"
 readme = "README.md"
 requires-python = ">=3.13"
 

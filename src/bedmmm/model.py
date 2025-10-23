@@ -8,10 +8,9 @@ import numpy as np
 import pandas as pd
 import pymc as pm
 import pytensor.tensor as pt
+from bedmmm.functions import carryover, saturation
 from pymc.util import RandomState
 from pymc_extras.model_builder import ModelBuilder
-
-from .functions import carryover, saturation
 
 
 class MarketingMixModel(ModelBuilder):
