@@ -1,5 +1,6 @@
 """Functions used tn model carryover effects in marketing."""
 
+import numpy as np
 import pytensor.tensor as pt
 from numpy.typing import NDArray
 from pytensor.tensor.variable import TensorVariable
@@ -71,3 +72,32 @@ def adstock_multiple(
         ],
         axis=1,
     )
+
+
+def adstock_numpy(
+    x: NDArray,
+    retention_rate: float,
+    max_length: int = 13,
+) -> NDArray:
+    """Apply adstock transformation to numpy array.
+
+    Parameters
+    ----------
+    x : NDArray, shape (T, )
+        The input values
+    retention_rate : float
+        The retention rate
+    max_length : int, default 13
+        The maximum lookback windows.
+
+    Returns
+    -------
+    NDArray of shape (T, )
+        The adstocked transformed values.
+
+    """
+    periods = np.arange(max_length)
+    w = np.power(retention_rate, periods)
+
+    x_transformed = np.convolve(x, w)
+    return x_transformed[: x.shape[0]]

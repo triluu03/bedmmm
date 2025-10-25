@@ -28,34 +28,23 @@ def exp(
     return 1 - pt.exp(-x / shape)
 
 
-def exp_multiple(
-    x: NDArray | TensorVariable,
-    shape: TensorVariable,
-    n_channels: int,
-) -> TensorVariable:
-    """Apply inverse exponential saturation to multiple channels.
+def exp_numpy(x: NDArray, shape: float) -> NDArray:
+    """Apply inverse exponential saturation function to a single channel.
 
     Parameters
     ----------
-    x : NDArray | TensorVariable, shape (T, M)
-        The investment timeseries over the full history of M channels.
-    shape : TensorVariable, shape (M, )
-        The shape of M channels, respectively.
-    n_channels : int
-        The number of channels, should be equal to M.
+    x : NDArray, shape (T, )
+        The investment timeseries
+    shape : float
+        The shape parameter of the current channel.
 
-    Returncurrents
+    Returns
     -------
-    TensorVariable, shape (T, M)
-        The transformed effects between (0, 1).
+    NDArray, shape (T, )
+        The transformed effects with values between (0, 1).
 
     """
-    return pt.sub(
-        1,
-        pt.exp(
-            pt.true_div(x, shape[None, :]),
-        ),
-    )
+    return 1 - np.exp(-x / shape)
 
 
 def hill(
