@@ -195,8 +195,8 @@ class MarketingMixModel(ModelBuilder):
     def get_default_sampler_config(self) -> dict:
         """Get default sampler config."""
         return {
-            "draws": 2_000,
-            "tune": 1_000,
+            "draws": 3_000,
+            "tune": 1_500,
             "chains": 4,
             "target_accept": 0.95,
         }
