@@ -142,12 +142,13 @@ class MarketingMixModel(ModelBuilder):
             control_effects = pt.dot(X_control_metrics, gammas)
 
             # Baseline priors
+            baseline = pm.Normal("baseline", mu=4, sigma=0.05)
 
             # Likelihood
             obs_sigma = self.model_config.get("obs_sigma", 0.1)
             _likelihood = pm.Normal(
                 "y",
-                mu=media_uplifts + control_effects,  # + base
+                mu=media_uplifts + control_effects + baseline,
                 sigma=obs_sigma,
                 observed=y_target,
             )
@@ -192,9 +193,9 @@ class MarketingMixModel(ModelBuilder):
     def get_default_sampler_config(self) -> dict:
         """Get default sampler config."""
         return {
-            "draws": 1_000,
+            "draws": 2_000,
             "tune": 1_000,
-            "chains": 3,
+            "chains": 4,
             "target_accept": 0.95,
         }
 

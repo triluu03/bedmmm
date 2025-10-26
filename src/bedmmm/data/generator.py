@@ -42,7 +42,11 @@ class DataGenerator:
 
         self._target_df: pl.DataFrame = pl.DataFrame()
 
-    def generate_baseline(self: Self, base: float, noise: float) -> Self:
+    def generate_baseline(
+        self: Self,
+        base: float,
+        noise: float = 0,
+    ) -> Self:
         """Generate baseline.
 
         Parameters
@@ -59,7 +63,7 @@ class DataGenerator:
             DataGenerator with baseline included.
 
         """
-        baseline = base + np.random.normal(loc=0, scale=noise, size=self.T)
+        baseline = np.random.normal(loc=base, scale=noise, size=self.T)
         self._baseline_df = self._baseline_df.with_columns(
             pl.Series("baseline", baseline)
         )
@@ -68,7 +72,7 @@ class DataGenerator:
     def generate_control(
         self: Self,
         control_effect: float,
-        noise: float,
+        noise: float = 0,
         type: Literal["seasonality"] = "seasonality",
     ) -> Self:
         """Generate the arbitrary control variable.
@@ -77,7 +81,7 @@ class DataGenerator:
         ----------
         control_effect : float
             The effect coefficient of the control variable.
-        noise : float
+        noise : float, default 0
             The noise added to the control variable.
         type : str, default "seasonality"
             Type of control variable to generate. Supported types are:
@@ -87,9 +91,11 @@ class DataGenerator:
         self.C += 1
         match type:
             case "seasonality":
-                control_var = np.cos(
-                    2 * np.pi * (np.arange(self.T) - 12) / 52
-                ) + np.random.normal(loc=0, scale=noise, size=self.T)
+                control_var = np.random.normal(
+                    loc=np.cos(2 * np.pi * (np.arange(self.T) - 12) / 52),
+                    scale=noise,
+                    size=self.T,
+                )
 
                 self._control_df = self._control_df.with_columns(
                     pl.Series(f"control_{self.C}", control_var)
@@ -107,7 +113,7 @@ class DataGenerator:
         retention_rate: float,
         saturation: float,
         shape: float,
-        noise: float,
+        noise: float = 0,
     ) -> Self:
         """Generate the metrics of one media channel.
 
@@ -122,7 +128,7 @@ class DataGenerator:
         shape : float
             The shape of the channel.
             Used in exponential saturation function.
-        noise : float
+        noise : float, default 0
             The noise added to the media metrics.
 
         """
@@ -135,14 +141,14 @@ class DataGenerator:
         self.M += 1
 
         metric_lb = np.random.uniform(0, 1)
-        control_corr = np.random.uniform(0, 1)
+        control_corr = np.random.uniform(0.0, 0.8)
         white_noise = np.random.normal(0, noise, self.T)
 
         media_metrics = (
             metric_lb
             + control_corr * self._control_df.to_numpy().sum(axis=1)
             + np.sqrt(1 - control_corr**2) * white_noise
-        )
+        ).clip(0.0, None)
 
         self._media_df = self._media_df.with_columns(
             pl.Series(f"media_{self.M}", media_metrics)
@@ -153,6 +159,8 @@ class DataGenerator:
                 "retention_rate": retention_rate,
                 "saturation": saturation,
                 "shape": shape,
+                "metric_lower_bound": metric_lb,
+                "control_correlation": control_corr,
             }
         )
 
@@ -165,8 +173,6 @@ class DataGenerator:
         ----------
         noise : float
             The observation noise added to the sales target.
-            The noise is generated based on the normal distribution
-            with mean zero.
 
         Returns
         -------
@@ -250,6 +256,8 @@ class DataGenerator:
                 "retention_rate": pl.Float64,
                 "saturation": pl.Float64,
                 "shape": pl.Float64,
+                "metric_lower_bound": pl.Float64,
+                "control_correlation": pl.Float64,
             },
         ), pl.DataFrame(
             self._control_params,

@@ -70,14 +70,3 @@ def hill(
 
     """
     return 1 / (1 + (x / half_saturation) ** (-shape))
-
-
-if __name__ == "__main__":
-    x = pt.matrix("x")
-    shape = pt.vector("shape")
-
-    res_var = exp_multiple(x, shape, 5)
-    values = res_var.eval(
-        {x: np.ones((52, 5)), shape: np.ones(5) * 0.5},
-    )
-    breakpoint()
