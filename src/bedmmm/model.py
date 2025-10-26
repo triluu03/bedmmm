@@ -31,7 +31,7 @@ class MarketingMixModel(ModelBuilder):
         ----------
         X : pd.DataFrame
             The features dataframe containing:
-                - Media features with column name: `media_feature_{m}`.
+                - Media features with column name: `media_{m}`.
                 - Control variables with column name: `control_{c}`.
             where:
                 - `m`: is the m-th media channel.
@@ -50,36 +50,29 @@ class MarketingMixModel(ModelBuilder):
 
         with pm.Model(coords=self.model_coords) as self.model:
             # Data and observations
-            X_media_metrics = pm.MutableData(
-                "X_media_metrics", X_media_metrics
-            )
-            X_control_metrics = pm.MutableData(
-                "X_control_metrics", X_control_metrics
-            )
-            y_target = pm.MutableData("y_target", y_values)
+            X_media_data = pm.Data("X_media_data", X_media_metrics)
+            X_control_data = pm.Data("X_control_data", X_control_metrics)
+            y_target = pm.Data("y_target", y_values)
 
             # Media priors
             # Retention rates
             retention_rate_alphas = np.array(
                 [
-                    self.model_config.get(
-                        f"retention_rate_alpha_{m}"
-                        for m in range(1, self.M + 1)
-                    )
+                    self.model_config.get(f"retention_rate_alpha_{m}")
+                    for m in range(1, self.M + 1)
                 ]
             )
             retention_rate_betas = np.array(
                 [
-                    self.model_config.get(
-                        f"retention_rate_beta_{m}"
-                        for m in range(1, self.M + 1)
-                    )
+                    self.model_config.get(f"retention_rate_beta_{m}")
+                    for m in range(1, self.M + 1)
                 ]
             )
             retention_rates = pm.Beta(
                 name="retention_rates",
                 alpha=retention_rate_alphas,
                 beta=retention_rate_betas,
+                shape=retention_rate_alphas.shape,
             )
 
             # Shape of saturation function
@@ -89,27 +82,30 @@ class MarketingMixModel(ModelBuilder):
                     for m in range(1, self.M + 1)
                 ]
             )
-            shapes = pm.HalfNormal(name="shapes", sigma=shape_sigmas)
+            shapes = pm.HalfNormal(
+                name="shapes",
+                sigma=shape_sigmas,
+                shape=shape_sigmas.shape,
+            )
 
             # Saturation priors
             saturation_mus = np.array(
                 [
-                    self.model_config.get(
-                        f"saturation_mu_{m}" for m in range(1, self.M + 1)
-                    )
+                    self.model_config.get(f"saturation_mu_{m}")
+                    for m in range(1, self.M + 1)
                 ]
             )
             saturation_sigmas = np.array(
                 [
-                    self.model_config.get(
-                        f"saturation_sigma_{m}" for m in range(1, self.M + 1)
-                    )
+                    self.model_config.get(f"saturation_sigma_{m}")
+                    for m in range(1, self.M + 1)
                 ]
             )
             saturations = pm.Normal(
                 name="saturations",
                 mu=saturation_mus,
                 sigma=saturation_sigmas,
+                shape=saturation_mus.shape,
             )
 
             # Calculate the media uplifts
@@ -119,7 +115,7 @@ class MarketingMixModel(ModelBuilder):
                         saturations[m]
                         * saturation.exp(
                             carryover.adstock(
-                                X_media_metrics[:, m], retention_rates[m]
+                                X_media_data[:, m], retention_rates[m]
                             ),
                             shapes[m],
                         )
@@ -133,19 +129,27 @@ class MarketingMixModel(ModelBuilder):
             gamma_sigmas = np.array(
                 [
                     self.model_config.get(f"gamma_sigma_{c}")
-                    for c in range(1, self.C)
+                    for c in range(1, self.C + 1)
                 ]
             )
             gammas = pm.Normal(
-                "gammas", mu=0, sigma=gamma_sigmas, shape=gamma_sigmas.shape
+                "gammas",
+                mu=0,
+                sigma=gamma_sigmas,
+                shape=gamma_sigmas.shape,
             )
-            control_effects = pt.dot(X_control_metrics, gammas)
+            control_effects = pt.dot(X_control_data, gammas)
 
             # Baseline priors
-            baseline = pm.Normal("baseline", mu=4, sigma=0.05)
+            baseline = pm.Normal(
+                "baseline",
+                mu=4,
+                sigma=0.05,
+                shape=y_target.shape,
+            )
 
             # Likelihood
-            obs_sigma = self.model_config.get("obs_sigma", 0.1)
+            obs_sigma = self.model_config.get("obs_sigma")
             _likelihood = pm.Normal(
                 "y",
                 mu=media_uplifts + control_effects + baseline,
@@ -164,7 +168,7 @@ class MarketingMixModel(ModelBuilder):
         ----------
         X : pd.DataFrame
             The features dataframe containing:
-                - Media features with column name: `media_feature_{m}_{g}`.
+                - Media features with column name: `media_{m}_{g}`.
                 - Control variables with column name: `control_{c}_{g}`.
             where:
                 - `m`: is the m-th media channel.
@@ -180,8 +184,7 @@ class MarketingMixModel(ModelBuilder):
             if y is not None:
                 pm.set_data({"y_data": y.values})
 
-    @staticmethod
-    def get_default_model_config():
+    def get_default_model_config(self):
         """Get the default model config."""
         raise RuntimeError(
             "MarketingMixModel has been initialized without a model config. "
@@ -189,7 +192,6 @@ class MarketingMixModel(ModelBuilder):
             "your config explicitly!"
         )
 
-    @staticmethod
     def get_default_sampler_config(self) -> dict:
         """Get default sampler config."""
         return {
@@ -231,7 +233,7 @@ class MarketingMixModel(ModelBuilder):
         ----------
         X : pd.DataFrame
             The features dataframe containing:
-                - Media features with column name: `media_feature_{m}`.
+                - Media features with column name: `media_{m}`.
                 - Control variables with column name: `control_{c}`.
             where:
                 - `m`: is the m-th media channel, starts with 1.
@@ -245,7 +247,7 @@ class MarketingMixModel(ModelBuilder):
         self.X = X.values
         self.y = y.values
 
-        self.M = X.columns.str.match(r"^media_feature_\d+$").sum().item()
+        self.M = X.columns.str.match(r"^media_\d+$").sum().item()
         self.C = X.columns.str.match(r"^control_\d+$").sum().item()
 
     @override
@@ -266,7 +268,7 @@ class MarketingMixModel(ModelBuilder):
         ----------
         X : pd.DataFrame
             The features dataframe containing:
-                - Media features with column name: `media_feature_{m}_{g}`.
+                - Media features with column name: `media_{m}_{g}`.
                 - Control variables with column name: `control_{c}`.
             where:
                 - `m`: is the m-th media channel.
