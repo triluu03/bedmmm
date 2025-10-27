@@ -49,36 +49,36 @@ def main():
     model = MarketingMixModel(
         model_config={
             #
+            # Media channel 0 priors
+            "retention_rate_alpha_0": 0.1,
+            "retention_rate_beta_0": 0.5,
+            "shape_sigma_0": 8,
+            "saturation_mu_0": 5,
+            "saturation_sigma_0": 2,
+            #
             # Media channel 1 priors
             "retention_rate_alpha_1": 0.1,
             "retention_rate_beta_1": 0.5,
-            "shape_sigma_1": 8,
-            "saturation_mu_1": 5,
+            "shape_sigma_1": 4,
+            "saturation_mu_1": 3,
             "saturation_sigma_1": 2,
             #
             # Media channel 2 priors
-            "retention_rate_alpha_2": 0.1,
-            "retention_rate_beta_2": 0.5,
-            "shape_sigma_2": 4,
-            "saturation_mu_2": 3,
+            "retention_rate_alpha_2": 0.5,
+            "retention_rate_beta_2": 0.9,
+            "shape_sigma_2": 8,
+            "saturation_mu_2": 5,
             "saturation_sigma_2": 2,
             #
             # Media channel 3 priors
             "retention_rate_alpha_3": 0.5,
             "retention_rate_beta_3": 0.9,
-            "shape_sigma_3": 8,
-            "saturation_mu_3": 5,
+            "shape_sigma_3": 4,
+            "saturation_mu_3": 3,
             "saturation_sigma_3": 2,
             #
-            # Media channel 4 priors
-            "retention_rate_alpha_4": 0.5,
-            "retention_rate_beta_4": 0.9,
-            "shape_sigma_4": 4,
-            "saturation_mu_4": 3,
-            "saturation_sigma_4": 2,
-            #
             # Control
-            "gamma_sigma_1": 1.0,
+            "gamma_sigma_0": 1.0,
             #
             # Observation noise
             "obs_sigma": 5,

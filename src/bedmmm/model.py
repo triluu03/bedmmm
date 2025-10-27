@@ -34,8 +34,8 @@ class MarketingMixModel(ModelBuilder):
                 - Media features with column name: `media_{m}`.
                 - Control variables with column name: `control_{c}`.
             where:
-                - `m`: is the m-th media channel.
-                - `c`: is the c-th control variable.
+                - `m`: is the m-th media channel, starts with 0.
+                - `c`: is the c-th control variable, starts with 0.
         y : pd.Series
             The target sales series
 
@@ -59,13 +59,13 @@ class MarketingMixModel(ModelBuilder):
             retention_rate_alphas = np.array(
                 [
                     self.model_config.get(f"retention_rate_alpha_{m}")
-                    for m in range(1, self.M + 1)
+                    for m in range(self.M)
                 ]
             )
             retention_rate_betas = np.array(
                 [
                     self.model_config.get(f"retention_rate_beta_{m}")
-                    for m in range(1, self.M + 1)
+                    for m in range(self.M)
                 ]
             )
             retention_rates = pm.Beta(
@@ -79,7 +79,7 @@ class MarketingMixModel(ModelBuilder):
             shape_sigmas = np.array(
                 [
                     self.model_config.get(f"shape_sigma_{m}")
-                    for m in range(1, self.M + 1)
+                    for m in range(self.M)
                 ]
             )
             shapes = pm.HalfNormal(
@@ -92,13 +92,13 @@ class MarketingMixModel(ModelBuilder):
             saturation_mus = np.array(
                 [
                     self.model_config.get(f"saturation_mu_{m}")
-                    for m in range(1, self.M + 1)
+                    for m in range(self.M)
                 ]
             )
             saturation_sigmas = np.array(
                 [
                     self.model_config.get(f"saturation_sigma_{m}")
-                    for m in range(1, self.M + 1)
+                    for m in range(self.M)
                 ]
             )
             saturations = pm.Normal(
@@ -129,7 +129,7 @@ class MarketingMixModel(ModelBuilder):
             gamma_sigmas = np.array(
                 [
                     self.model_config.get(f"gamma_sigma_{c}")
-                    for c in range(1, self.C + 1)
+                    for c in range(self.C)
                 ]
             )
             gammas = pm.Normal(
@@ -236,8 +236,8 @@ class MarketingMixModel(ModelBuilder):
                 - Media features with column name: `media_{m}`.
                 - Control variables with column name: `control_{c}`.
             where:
-                - `m`: is the m-th media channel, starts with 1.
-                - `c`: is the c-th control variable, starts with 1.
+                - `m`: is the m-th media channel, starts with 0.
+                - `c`: is the c-th control variable, starts with 0.
         y : pd.Series
             The target sales series
 
@@ -271,8 +271,8 @@ class MarketingMixModel(ModelBuilder):
                 - Media features with column name: `media_{m}_{g}`.
                 - Control variables with column name: `control_{c}`.
             where:
-                - `m`: is the m-th media channel.
-                - `c`: is the c-th control variable.
+                - `m`: is the m-th media channel, starts with 0.
+                - `c`: is the c-th control variable, starts with 0.
         y : pd.Series
             The target sales series
         progressbar : bool

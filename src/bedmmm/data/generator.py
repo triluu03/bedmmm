@@ -88,7 +88,6 @@ class DataGenerator:
                 - seasonality
 
         """
-        self.C += 1
         match type:
             case "seasonality":
                 control_var = np.random.normal(
@@ -106,6 +105,8 @@ class DataGenerator:
                         "control_effect": control_effect,
                     }
                 )
+
+        self.C += 1
         return self
 
     def generate_media(
@@ -138,8 +139,6 @@ class DataGenerator:
                 "at least one control variable before any media data."
             )
 
-        self.M += 1
-
         metric_lb = np.random.uniform(0, 1)
         control_corr = np.random.uniform(0.0, 0.8)
         white_noise = np.random.normal(0, noise, self.T)
@@ -163,6 +162,8 @@ class DataGenerator:
                 "control_correlation": control_corr,
             }
         )
+
+        self.M += 1
 
         return self
 
