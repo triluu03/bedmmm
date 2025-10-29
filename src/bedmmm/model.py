@@ -1,5 +1,6 @@
 """Marketing Mix Modeling (MMM) in PyMC."""
 
+import os
 import warnings
 from typing import Any, override
 
@@ -9,6 +10,7 @@ import pandas as pd
 import pymc as pm
 import pytensor.tensor as pt
 from bedmmm.functions import carryover, saturation
+from numpy.typing import NDArray
 from pymc.util import RandomState
 from pymc_extras.model_builder import ModelBuilder
 
@@ -56,23 +58,23 @@ class MarketingMixModel(ModelBuilder):
 
             # Media priors
             # Retention rates
-            retention_rate_alphas = np.array(
+            retention_rate_lbs = np.array(
                 [
-                    self.model_config.get(f"retention_rate_alpha_{m}")
+                    self.model_config.get(f"retention_rate_lb_{m}")
                     for m in range(self.M)
                 ]
             )
-            retention_rate_betas = np.array(
+            retention_rate_ubs = np.array(
                 [
-                    self.model_config.get(f"retention_rate_beta_{m}")
+                    self.model_config.get(f"retention_rate_ub_{m}")
                     for m in range(self.M)
                 ]
             )
-            retention_rates = pm.Beta(
+            retention_rates = pm.Uniform(
                 name="retention_rates",
-                alpha=retention_rate_alphas,
-                beta=retention_rate_betas,
-                shape=retention_rate_alphas.shape,
+                lower=retention_rate_lbs,
+                upper=retention_rate_ubs,
+                shape=retention_rate_lbs.shape,
             )
 
             # Shape of saturation function
@@ -194,10 +196,12 @@ class MarketingMixModel(ModelBuilder):
 
     def get_default_sampler_config(self) -> dict:
         """Get default sampler config."""
+        cpu_cores = os.cpu_count()
         return {
             "draws": 3_000,
             "tune": 1_500,
             "chains": 4,
+            "cores": min(4, cpu_cores // 2) if cpu_cores is not None else 1,
             "target_accept": 0.95,
         }
 
