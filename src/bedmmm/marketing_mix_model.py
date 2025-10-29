@@ -402,7 +402,7 @@ class MarketingMixModel(ModelBuilder):
         c : NDArray, shape (C, )
             The values of C control variables.
         gammas : NDArray, shape (C, )
-            The point estimate of the control effectj
+            The point estimate of the control effects
         baseline : float
             The point estimate of the baseline.
 
