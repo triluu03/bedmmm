@@ -315,3 +315,60 @@ class MarketingMixModel(ModelBuilder):
             self.idata.add_groups(fit_data=combined_data.to_xarray())
 
         return self.idata
+
+    @staticmethod
+    def response_function(
+        x: NDArray,
+        retention_rates: NDArray,
+        saturations: NDArray,
+        shapes: NDArray,
+        c: NDArray,
+        gammas: NDArray,
+        baseline: float,
+    ) -> NDArray:
+        """Calculate the response based on the parameters.
+
+        This can also be seen as the observation model.
+
+        Parameters
+        ----------
+        x : NDArray, shape (L, M)
+            The investment data of all M channels over a period of
+            L, which is the max length of the carry-over effects.
+            By default, L is 13 (weeks).
+        retention_rates : NDArray, shape (S, M)
+            S samples of retention rates of all M channels.
+        saturations : NDArray, shape (S, M)
+            S samples of saturations of all M channels.
+        shapes : NDArray, shape (S, M)
+            S samples of shapes of all M channels.
+        c : NDArray, shape (1, C)
+            The values of C control variables.
+        gammas : NDArray, shape (S, C)
+            S samples of control effects of all C control variables.
+        baseline : float
+            The point estimate of the baseline.
+
+        Returns
+        -------
+        NDArray, of shape (S, )
+            S samples of expected sales.
+
+        """
+        # Carryover effects
+        periods = np.arange(13 - 1, -1, -1)[np.newaxis, :, np.newaxis]
+        w = np.power(retention_rates[:, np.newaxis, :], periods)
+        x_transformed = np.sum(x[np.newaxis, :, :] * w, axis=1)  # shape (S, M)
+
+        # Media uplifts
+        media_uplifts = np.sum(
+            saturations * (1 - np.exp(-x_transformed / shapes)), axis=1
+        )
+
+        # Control effects
+        control_effects = np.sum(gammas * c, axis=1)
+
+        # Target sales
+        y_target = media_uplifts + control_effects + baseline
+
+        return y_target
