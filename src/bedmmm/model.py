@@ -342,10 +342,10 @@ class MarketingMixModel(ModelBuilder):
             S samples of saturations of all M channels.
         shapes : NDArray, shape (S, M)
             S samples of shapes of all M channels.
-        c : NDArray, shape (1, C)
+        c : NDArray, shape (C, )
             The values of C control variables.
-        gammas : NDArray, shape (S, C)
-            S samples of control effects of all C control variables.
+        gammas : NDArray, shape (C, )
+            The point estimates of the control effects.
         baseline : float
             The point estimate of the baseline.
 
@@ -366,7 +366,66 @@ class MarketingMixModel(ModelBuilder):
         )
 
         # Control effects
-        control_effects = np.sum(gammas * c, axis=1)
+        control_effects = np.sum(gammas * c)
+
+        # Target sales
+        y_target = media_uplifts + control_effects + baseline
+
+        return y_target
+
+    @staticmethod
+    def response_function_nested_samples(
+        x: NDArray,
+        retention_rates: NDArray,
+        saturations: NDArray,
+        shapes: NDArray,
+        c: NDArray,
+        gammas: NDArray,
+        baseline: float,
+    ) -> NDArray:
+        """Calculate the response based on the parameters.
+
+        This can also be seen as the observation model.
+
+        Parameters
+        ----------
+        x : NDArray, shape (L, M)
+            The investment data of all M channels over a period of
+            L, which is the max length of the carry-over effects.
+            By default, L is 13 (weeks).
+        retention_rates : NDArray, shape (S1, S2, M)
+            S1 x S2 samples of retention rates of all M channels.
+        saturations : NDArray, shape (S1, S2, M)
+            S1 x S2 samples of saturations of all M channels.
+        shapes : NDArray, shape (S1, S2, M)
+            S1 x S2 samples of shapes of all M channels.
+        c : NDArray, shape (C, )
+            The values of C control variables.
+        gammas : NDArray, shape (C, )
+            The point estimate of the control effectj
+        baseline : float
+            The point estimate of the baseline.
+
+        Returns
+        -------
+        NDArray, of shape (S1, S2)
+            S1 x S2 samples of expected sales.
+
+        """
+        # Carryover effects
+        periods = np.arange(13 - 1, -1, -1)[
+            np.newaxis, np.newaxis, :, np.newaxis
+        ]
+        w = np.power(retention_rates[:, :, np.newaxis, :], periods)
+        x_transformed = np.sum(x[np.newaxis, np.newaxis, :, :] * w, axis=2)
+
+        # Media uplifts
+        media_uplifts = np.sum(
+            saturations * (1 - np.exp(-x_transformed / shapes)), axis=2
+        )
+
+        # Control effects
+        control_effects = np.sum(gammas * c)
 
         # Target sales
         y_target = media_uplifts + control_effects + baseline
