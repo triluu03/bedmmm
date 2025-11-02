@@ -7,6 +7,8 @@ import numpy as np
 import polars as pl
 from bedmmm.functions.carryover import adstock_numpy
 from bedmmm.functions.saturation import exp_numpy
+from bedmmm.model import MarketingMixModel
+from numpy.typing import NDArray
 
 logger = logging.getLogger(__name__)
 
@@ -32,15 +34,17 @@ class DataGenerator:
         self.M = 0  # Number of media channels generated
         self.C = 0  # number of control variables generated
 
-        self._baseline_df: pl.DataFrame = pl.DataFrame()
+        self.__baseline_df: pl.DataFrame = pl.DataFrame()
+        self.__baseline_param: dict[Literal["baseline", "noise"], float] = {}
 
-        self._control_df: pl.DataFrame = pl.DataFrame()
-        self._control_params = []
+        self.__control_df: pl.DataFrame = pl.DataFrame()
+        self.__control_params = []
 
-        self._media_df: pl.DataFrame = pl.DataFrame()
-        self._media_params = []
+        self.__media_df: pl.DataFrame = pl.DataFrame()
+        self.__media_params = []
 
-        self._target_df: pl.DataFrame = pl.DataFrame()
+        self.__target_df: pl.DataFrame = pl.DataFrame()
+        self.__target_param: dict[Literal["noise"], float] = {}
 
     def generate_baseline(
         self: Self,
@@ -64,9 +68,13 @@ class DataGenerator:
 
         """
         baseline = np.random.normal(loc=base, scale=noise, size=self.T)
-        self._baseline_df = self._baseline_df.with_columns(
+        self.__baseline_df = self.__baseline_df.with_columns(
             pl.Series("baseline", baseline)
         )
+
+        self.__baseline_param["baseline"] = base
+        self.__baseline_param["noise"] = noise
+
         return self
 
     def generate_control(
@@ -96,10 +104,10 @@ class DataGenerator:
                     size=self.T,
                 )
 
-                self._control_df = self._control_df.with_columns(
+                self.__control_df = self.__control_df.with_columns(
                     pl.Series(f"control_{self.C}", control_var)
                 )
-                self._control_params.append(
+                self.__control_params.append(
                     {
                         "control_variable": f"control_{self.C}",
                         "control_effect": control_effect,
@@ -145,14 +153,14 @@ class DataGenerator:
 
         media_metrics = (
             metric_lb
-            + control_corr * self._control_df.to_numpy().sum(axis=1)
+            + control_corr * self.__control_df.to_numpy().sum(axis=1)
             + np.sqrt(1 - control_corr**2) * white_noise
         ).clip(0.0, None)
 
-        self._media_df = self._media_df.with_columns(
+        self.__media_df = self.__media_df.with_columns(
             pl.Series(f"media_{self.M}", media_metrics)
         )
-        self._media_params.append(
+        self.__media_params.append(
             {
                 "media_feature": f"media_{self.M}",
                 "retention_rate": retention_rate,
@@ -181,7 +189,7 @@ class DataGenerator:
             DataGenerator with target included.
 
         """
-        if not self._target_df.is_empty():
+        if not self.__target_df.is_empty():
             logger.warning(
                 "A set of target data has already generated before. "
                 "Overwriting it!"
@@ -191,18 +199,18 @@ class DataGenerator:
             media_param["saturation"]
             * exp_numpy(
                 x=adstock_numpy(
-                    x=self._media_df[media_param["media_feature"]].to_numpy(),
+                    x=self.__media_df[media_param["media_feature"]].to_numpy(),
                     retention_rate=media_param["retention_rate"],
                 ),
                 shape=media_param["shape"],
             )
-            for media_param in self._media_params
+            for media_param in self.__media_params
         ]
 
         control_effects = [
             control_param["control_effect"]
-            * self._control_df[control_param["control_variable"]].to_numpy()
-            for control_param in self._control_params
+            * self.__control_df[control_param["control_variable"]].to_numpy()
+            for control_param in self.__control_params
         ]
 
         white_noise = np.random.normal(0, noise, self.T)
@@ -210,13 +218,15 @@ class DataGenerator:
         y_target = (
             np.sum(media_uplifts, axis=0)
             + np.sum(control_effects, axis=0)
-            + self._baseline_df["baseline"].to_numpy()
+            + self.__baseline_df["baseline"].to_numpy()
             + white_noise
         )
 
-        self._target_df = self._target_df.with_columns(
+        self.__target_df = self.__target_df.with_columns(
             pl.Series("y", y_target)
         )
+
+        self.__target_param["noise"] = noise
 
         return self
 
@@ -234,9 +244,9 @@ class DataGenerator:
         """
         return pl.concat(
             [
-                self._media_df,
-                self._control_df,
-                self._target_df,
+                self.__media_df,
+                self.__control_df,
+                self.__target_df,
             ],
             how="horizontal",
         )
@@ -251,7 +261,7 @@ class DataGenerator:
 
         """
         media_param_df = pl.DataFrame(
-            self._media_params,
+            self.__media_params,
             schema={
                 "media_feature": pl.String,
                 "retention_rate": pl.Float64,
@@ -262,7 +272,7 @@ class DataGenerator:
             },
         )
         control_param_df = pl.DataFrame(
-            self._control_params,
+            self.__control_params,
             schema={
                 "control_variable": pl.String,
                 "control_effect": pl.Float64,

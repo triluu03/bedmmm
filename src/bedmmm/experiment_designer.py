@@ -215,6 +215,7 @@ class ExperimentDesigner:
             ),
         )
 
+        print(res)
         return res.x
 
     @property
