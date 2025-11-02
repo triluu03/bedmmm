@@ -1,11 +1,23 @@
-"""Fit a sample model."""
+"""Example usage."""
 
+import arviz as az
+import numpy as np
+import polars as pl
 from bedmmm.data.generator import DataGenerator
+from bedmmm.experiment_designer import ExperimentDesigner
 from bedmmm.model import MarketingMixModel
+from numpy.typing import NDArray
 
 
-def main():
-    """Main function."""
+def generate_synthetic_data() -> pl.DataFrame:
+    """Generate synthetic data.
+
+    Returns
+    -------
+    pl.DataFrame
+        The generated dataframe.
+
+    """
     generator = (
         DataGenerator(n_time_periods=52, random_seed=10)
         .generate_baseline(base=10)
@@ -44,8 +56,23 @@ def main():
         .generate_target(noise=5)
     )
 
-    data = generator.collect()
+    return generator.collect()
 
+
+def fit_sample_model(data: pl.DataFrame) -> az.InferenceData:
+    """Fit a sample model.
+
+    Parameters
+    ----------
+    data : pl.DataFrame
+        The generated synthetic data.
+
+    Returns
+    -------
+    az.InferenceData
+        The inference data containing posterior samples.
+
+    """
     model = MarketingMixModel(
         model_config={
             #
@@ -84,7 +111,41 @@ def main():
             "obs_sigma": 5,
         }
     )
-    idata = model.fit(data.drop(["y"]).to_pandas(), data["y"].to_pandas())
+    return model.fit(data.drop(["y"]).to_pandas(), data["y"].to_pandas())
+
+
+def find_optimal_experiment(idata: az.InferenceData) -> NDArray:
+    """Find the optimal experiment.
+
+    Parameters
+    ----------
+    idata : az.InferenceData
+        The inference data from the model fitted above.
+
+    Returns
+    -------
+    NDArray
+        The optimal experiment (or investment levels).
+
+    """
+    designer = (
+        ExperimentDesigner(
+            n_media_channels=4, n_control_variables=1, regularized=False
+        )
+        .add_posterior_samples(idata)
+        .configure_experiment_space(
+            lower_bound=np.zeros(4), upper_bound=np.ones(4) * 10
+        )
+    )
+
+    return designer.find_optimal_experiment()
+
+
+def main():
+    """Main function."""
+    data = generate_synthetic_data()
+    idata = fit_sample_model(data)
+    _optimal_experiment = find_optimal_experiment(idata)
 
 
 if __name__ == "__main__":

@@ -250,7 +250,7 @@ class DataGenerator:
             The media and control parameters as DataFrames.
 
         """
-        return pl.DataFrame(
+        media_param_df = pl.DataFrame(
             self._media_params,
             schema={
                 "media_feature": pl.String,
@@ -260,10 +260,12 @@ class DataGenerator:
                 "metric_lower_bound": pl.Float64,
                 "control_correlation": pl.Float64,
             },
-        ), pl.DataFrame(
+        )
+        control_param_df = pl.DataFrame(
             self._control_params,
             schema={
                 "control_variable": pl.String,
                 "control_effect": pl.Float64,
             },
         )
+        return media_param_df, control_param_df
