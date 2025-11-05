@@ -25,7 +25,6 @@ class ExperimentDesigner:
         self: Self,
         n_media_channels: int,
         n_control_variables: int,
-        regularized: bool = True,
     ) -> None:
         """Initialize.
 
@@ -37,15 +36,14 @@ class ExperimentDesigner:
         n_control_variables : int
             The number of control variables in the model.
             This is the same as "C" defined in the MarketingMixModel class.
-        regularized : bool, default True
-            Whether to use the regularized utility function or not.
 
         """
         self.n_media_channels = n_media_channels
         self.n_control_variables = n_control_variables
         self.l_lookback_window = 13  # L = 13 weeks
 
-        self.regularized = regularized
+        self.regularized = False
+        self.x_0: NDArray
 
         # Boundaries for the experiments
         self.__lower_bound: NDArray | None = None
@@ -127,6 +125,9 @@ class ExperimentDesigner:
     ) -> Self:
         """Configure the experiment space.
 
+        This is essentially the same as configuring the boundaries for
+        the optimization problem.
+
         Parameters
         ----------
         lower_bound : NDArray, shape (n_media_channels, )
@@ -145,6 +146,21 @@ class ExperimentDesigner:
 
         return self
 
+    def configure_regularization(self: Self, x_0: NDArray) -> Self:
+        """Configure the regularized utility function.
+
+        Parameters
+        ----------
+        x_0 : NDArray, shape (M, )
+            The usual planned investments if no experiments
+            are carried out.
+
+        """
+        self.x_0 = x_0
+        self.regularized = True
+
+        return self
+
     def __objective_function(self: Self, x: NDArray) -> float:
         """Calculate objective function for finding the optimal experiment.
 
@@ -160,9 +176,21 @@ class ExperimentDesigner:
 
         """
         if self.regularized:
-            raise NotImplementedError(
-                "Not yet supported for regularized version"
+            d = np.vstack([self.__last_l_week_media, x])
+            d_0 = np.vstack([self.__last_l_week_media, self.x_0])
+            return -self.regularized_expected_information_gain(
+                d=d,
+                d_0=d_0,
+                retention_rates=self.__retention_rates,
+                saturations=self.__saturations,
+                shapes=self.__shapes,
+                c=np.array([1]),  # TODO: replace the placeholder value
+                gamma_est=self.__gamma_est,
+                baseline_est=self.__baseline_est,
+                sigma_est=self.__sigma_est,
+                random_seed=42,
             )
+
         else:
             d = np.vstack([self.__last_l_week_media, x])
             return -self.expected_information_gain(
@@ -398,8 +426,7 @@ class ExperimentDesigner:
                 gammas=gamma_est,
                 baseline=baseline_est,
             )
-            - (d - d_0)
-        )
+        ) - np.mean(d - d_0)
 
         return eig + regularized_term
 
