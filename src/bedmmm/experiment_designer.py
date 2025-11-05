@@ -24,7 +24,7 @@ class ExperimentDesigner:
     def __init__(
         self: Self,
         n_media_channels: int,
-        n_control_variables: int,
+        c: NDArray,
     ) -> None:
         """Initialize.
 
@@ -33,13 +33,13 @@ class ExperimentDesigner:
         n_media_channels : int
             The number of media channels in the model.
             This is the same as "M" defined in the MarketingMixModel class.
-        n_control_variables : int
-            The number of control variables in the model.
-            This is the same as "C" defined in the MarketingMixModel class.
+        c : NDArray, shape (n_control_variables, )
+            The values of the control variables during the experiment time.
 
         """
         self.n_media_channels = n_media_channels
-        self.n_control_variables = n_control_variables
+        self.n_control_variables = c.shape[0]
+        self.c: NDArray = c
         self.l_lookback_window = 13  # L = 13 weeks
 
         self.regularized = False
@@ -184,7 +184,7 @@ class ExperimentDesigner:
                 retention_rates=self.__retention_rates,
                 saturations=self.__saturations,
                 shapes=self.__shapes,
-                c=np.array([1]),  # TODO: replace the placeholder value
+                c=self.c,
                 gamma_est=self.__gamma_est,
                 baseline_est=self.__baseline_est,
                 sigma_est=self.__sigma_est,
@@ -198,7 +198,7 @@ class ExperimentDesigner:
                 retention_rates=self.__retention_rates,
                 saturations=self.__saturations,
                 shapes=self.__shapes,
-                c=np.array([1]),  # TODO: replace the placeholder value
+                c=self.c,
                 gamma_est=self.__gamma_est,
                 baseline_est=self.__baseline_est,
                 sigma_est=self.__sigma_est,
@@ -428,7 +428,7 @@ class ExperimentDesigner:
             )
         ) - np.mean(d - d_0)
 
-        return eig + regularized_term
+        return eig + regularized_term / 100
 
 
 def calculate_optimal_sample_number(n_samples: int) -> tuple[int, int]:
