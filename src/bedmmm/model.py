@@ -78,16 +78,23 @@ class MarketingMixModel(ModelBuilder):
             )
 
             # Shape of saturation function
-            shape_sigmas = np.array(
+            shape_alphas = np.array(
                 [
-                    self.model_config.get(f"shape_sigma_{m}")
+                    self.model_config.get(f"shape_alpha_{m}")
                     for m in range(self.M)
                 ]
             )
-            shapes = pm.HalfNormal(
+            shape_betas = np.array(
+                [
+                    self.model_config.get(f"shape_beta_{m}")
+                    for m in range(self.M)
+                ]
+            )
+            shapes = pm.InverseGamma(
                 name="shapes",
-                sigma=shape_sigmas,
-                shape=shape_sigmas.shape,
+                alpha=shape_alphas,
+                beta=shape_betas,
+                shape=shape_alphas.shape,
             )
 
             # Saturation priors
@@ -103,10 +110,11 @@ class MarketingMixModel(ModelBuilder):
                     for m in range(self.M)
                 ]
             )
-            saturations = pm.Normal(
+            saturations = pm.TruncatedNormal(
                 name="saturations",
                 mu=saturation_mus,
                 sigma=saturation_sigmas,
+                lower=0.0,
                 shape=saturation_mus.shape,
             )
 
@@ -146,7 +154,7 @@ class MarketingMixModel(ModelBuilder):
             baseline = pm.Normal(
                 "baseline",
                 mu=4,
-                sigma=0.05,
+                sigma=0.1,
                 shape=y_target.shape,
             )
 
@@ -198,7 +206,7 @@ class MarketingMixModel(ModelBuilder):
         """Get default sampler config."""
         cpu_cores = os.cpu_count()
         return {
-            "draws": 3_000,
+            "draws": 4_500,
             "tune": 1_500,
             "chains": 4,
             "cores": min(4, cpu_cores // 2) if cpu_cores is not None else 1,
