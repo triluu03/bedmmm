@@ -122,6 +122,7 @@ class DataGenerator:
         retention_rate: float,
         saturation: float,
         shape: float,
+        metric_lower_bound: float | None = None,
         noise: float = 0,
     ) -> Self:
         """Generate the metrics of one media channel.
@@ -137,6 +138,8 @@ class DataGenerator:
         shape : float
             The shape of the channel.
             Used in exponential saturation function.
+        metric_lower_bound : Optional[float], default None
+            The lower bound for the generated media data.
         noise : float, default 0
             The noise added to the media metrics.
 
@@ -147,12 +150,13 @@ class DataGenerator:
                 "at least one control variable before any media data."
             )
 
-        metric_lb = np.random.uniform(0, 1)
+        if metric_lower_bound is None:
+            metric_lower_bound = np.random.uniform(0, 1)
         control_corr = np.random.uniform(0.0, 0.8)
         white_noise = np.random.normal(0, noise, self.T)
 
         media_metrics = (
-            metric_lb
+            metric_lower_bound
             + control_corr * self.__control_df.to_numpy().sum(axis=1)
             + np.sqrt(1 - control_corr**2) * white_noise
         ).clip(0.0, None)
@@ -166,7 +170,7 @@ class DataGenerator:
                 "retention_rate": retention_rate,
                 "saturation": saturation,
                 "shape": shape,
-                "metric_lower_bound": metric_lb,
+                "metric_lower_bound": metric_lower_bound,
                 "control_correlation": control_corr,
             }
         )
