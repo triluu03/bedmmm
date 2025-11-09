@@ -78,23 +78,21 @@ class MarketingMixModel(ModelBuilder):
             )
 
             # Shape of saturation function
-            shape_alphas = np.array(
+            shape_mus = np.array(
+                [self.model_config.get(f"shape_mu_{m}") for m in range(self.M)]
+            )
+            shape_sigmas = np.array(
                 [
-                    self.model_config.get(f"shape_alpha_{m}")
+                    self.model_config.get(f"shape_sigma_{m}")
                     for m in range(self.M)
                 ]
             )
-            shape_betas = np.array(
-                [
-                    self.model_config.get(f"shape_beta_{m}")
-                    for m in range(self.M)
-                ]
-            )
-            shapes = pm.InverseGamma(
+            shapes = pm.TruncatedNormal(
                 name="shapes",
-                alpha=shape_alphas,
-                beta=shape_betas,
-                shape=shape_alphas.shape,
+                mu=shape_mus,
+                sigma=shape_sigmas,
+                lower=0.0,
+                shape=shape_mus.shape,
             )
 
             # Saturation priors
@@ -136,6 +134,9 @@ class MarketingMixModel(ModelBuilder):
             )
 
             # Control parameters priors
+            gamma_mus = np.array(
+                [self.model_config.get(f"gamma_mu_{c}") for c in range(self.C)]
+            )
             gamma_sigmas = np.array(
                 [
                     self.model_config.get(f"gamma_sigma_{c}")
@@ -144,17 +145,19 @@ class MarketingMixModel(ModelBuilder):
             )
             gammas = pm.Normal(
                 "gammas",
-                mu=0,
+                mu=gamma_mus,
                 sigma=gamma_sigmas,
                 shape=gamma_sigmas.shape,
             )
             control_effects = pt.dot(X_control_data, gammas)
 
             # Baseline priors
+            baseline_mu = self.model_config.get("baseline_mu")
+            baseline_sigma = self.model_config.get("baseline_sigma")
             baseline = pm.Normal(
                 "baseline",
-                mu=4,
-                sigma=0.1,
+                mu=baseline_mu,
+                sigma=baseline_sigma,
                 shape=y_target.shape,
             )
 
