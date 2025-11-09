@@ -16,13 +16,22 @@ logger = logging.getLogger(__name__)
 class DataGenerator:
     """Synethetic data generator."""
 
-    def __init__(self: Self, n_time_periods: int, random_seed: int = 0):
+    def __init__(
+        self: Self,
+        n_time_periods: int,
+        n_future_periods: int = 0,
+        random_seed: int = 0,
+    ):
         """Initialize.
 
         Parameters
         ----------
         n_time_periods : int
             The number of weeks for the data generation.
+        n_future_periods : int, default 0
+            The number of weeks to generate the data for the future.
+            Such data is not expected to be used to fit the model, but more
+            for doing experiments and causal-factual analysis.
         random_seed : int, default 0
             The seed for the random generator.
 
@@ -30,20 +39,28 @@ class DataGenerator:
         """
         np.random.seed(random_seed)
         self.T = n_time_periods
+        self.future_T = n_future_periods
 
         self.M = 0  # Number of media channels generated
         self.C = 0  # number of control variables generated
+        self.L = 13  # Max length days for the carryover effects
 
+        # Observed data
         self.__baseline_df: pl.DataFrame = pl.DataFrame()
-        self.__baseline_param: dict[Literal["baseline", "noise"], float] = {}
-
         self.__control_df: pl.DataFrame = pl.DataFrame()
-        self.__control_params = []
-
         self.__media_df: pl.DataFrame = pl.DataFrame()
-        self.__media_params = []
-
         self.__target_df: pl.DataFrame = pl.DataFrame()
+
+        # Future data
+        self.__future_baseline_df: pl.DataFrame = pl.DataFrame()
+        self.__future_control_df: pl.DataFrame = pl.DataFrame()
+        self.__future_media_df: pl.DataFrame = pl.DataFrame()
+        self.__future_target_df: pl.DataFrame = pl.DataFrame()
+
+        # Generation parameters
+        self.__baseline_param: dict[Literal["baseline", "noise"], float] = {}
+        self.__control_params = []
+        self.__media_params = []
         self.__target_param: dict[Literal["noise"], float] = {}
 
     def generate_baseline(
@@ -67,9 +84,14 @@ class DataGenerator:
             DataGenerator with baseline included.
 
         """
-        baseline = np.random.normal(loc=base, scale=noise, size=self.T)
+        baseline = np.random.normal(
+            loc=base, scale=noise, size=self.T + self.future_T
+        )
         self.__baseline_df = self.__baseline_df.with_columns(
-            pl.Series("baseline", baseline)
+            pl.Series("baseline", baseline[: self.T])
+        )
+        self.__future_baseline_df = self.__future_baseline_df.with_columns(
+            pl.Series("baseline", baseline[self.T :])
         )
 
         self.__baseline_param["baseline"] = base
@@ -99,14 +121,24 @@ class DataGenerator:
         match type:
             case "seasonality":
                 control_var = np.random.normal(
-                    loc=np.cos(2 * np.pi * (np.arange(self.T) - 12) / 52),
+                    loc=np.cos(
+                        2
+                        * np.pi
+                        * (np.arange(self.T + self.future_T) - 12)
+                        / 52
+                    ),
                     scale=noise,
-                    size=self.T,
+                    size=self.T + self.future_T,
+                )
+                self.__control_df = self.__control_df.with_columns(
+                    pl.Series(f"control_{self.C}", control_var[: self.T])
+                )
+                self.__future_control_df = (
+                    self.__future_control_df.with_columns(
+                        pl.Series(f"control_{self.C}", control_var[self.T :])
+                    )
                 )
 
-                self.__control_df = self.__control_df.with_columns(
-                    pl.Series(f"control_{self.C}", control_var)
-                )
                 self.__control_params.append(
                     {
                         "control_variable": f"control_{self.C}",
@@ -115,6 +147,7 @@ class DataGenerator:
                 )
 
         self.C += 1
+
         return self
 
     def generate_media(
@@ -153,17 +186,29 @@ class DataGenerator:
         if metric_lower_bound is None:
             metric_lower_bound = np.random.uniform(0, 1)
         control_corr = np.random.uniform(0.0, 0.8)
-        white_noise = np.random.normal(0, noise, self.T)
+
+        all_control_df = pl.concat(
+            [self.__control_df, self.__future_control_df]
+        )
+        white_noise = np.random.normal(
+            loc=0,
+            scale=noise,
+            size=self.T + self.future_T,
+        )
 
         media_metrics = (
             metric_lower_bound
-            + control_corr * self.__control_df.to_numpy().sum(axis=1)
+            + control_corr * all_control_df.to_numpy().sum(axis=1)
             + np.sqrt(1 - control_corr**2) * white_noise
         ).clip(0.0, None)
 
         self.__media_df = self.__media_df.with_columns(
-            pl.Series(f"media_{self.M}", media_metrics)
+            pl.Series(f"media_{self.M}", media_metrics[: self.T])
         )
+        self.__future_media_df = self.__future_media_df.with_columns(
+            pl.Series(f"media_{self.M}", media_metrics[self.T :])
+        )
+
         self.__media_params.append(
             {
                 "media_feature": f"media_{self.M}",
@@ -199,11 +244,16 @@ class DataGenerator:
                 "Overwriting it!"
             )
 
+        all_media_df = pl.concat([self.__media_df, self.__future_media_df])
+        all_control_df = pl.concat(
+            [self.__control_df, self.__future_control_df]
+        )
+
         media_uplifts = [
             media_param["saturation"]
             * exp_numpy(
                 x=adstock_numpy(
-                    x=self.__media_df[media_param["media_feature"]].to_numpy(),
+                    x=all_media_df[media_param["media_feature"]].to_numpy(),
                     retention_rate=media_param["retention_rate"],
                 ),
                 shape=media_param["shape"],
@@ -213,21 +263,32 @@ class DataGenerator:
 
         control_effects = [
             control_param["control_effect"]
-            * self.__control_df[control_param["control_variable"]].to_numpy()
+            * all_control_df[control_param["control_variable"]].to_numpy()
             for control_param in self.__control_params
         ]
 
-        white_noise = np.random.normal(0, noise, self.T)
+        baseline = pl.concat([self.__baseline_df, self.__future_baseline_df])[
+            "baseline"
+        ].to_numpy()
+
+        white_noise = np.random.normal(
+            loc=0,
+            scale=noise,
+            size=self.T + self.future_T,
+        )
 
         y_target = (
             np.sum(media_uplifts, axis=0)
             + np.sum(control_effects, axis=0)
-            + self.__baseline_df["baseline"].to_numpy()
+            + baseline
             + white_noise
         )
 
         self.__target_df = self.__target_df.with_columns(
-            pl.Series("y", y_target)
+            pl.Series("y", y_target[: self.T])
+        )
+        self.__future_target_df = self.__future_target_df.with_columns(
+            pl.Series("y", y_target[self.T :])
         )
 
         self.__target_param["noise"] = noise
@@ -236,24 +297,41 @@ class DataGenerator:
 
     def collect(
         self: Self,
+        data_type: Literal["observed", "future"] = "observed",
     ) -> pl.DataFrame:
         """Collect the generated data.
 
+        Parameters
+        ----------
+        data_type : str
+            "observed": collect the observation data.
+            "future": collect the future data.
+
         Returns
         -------
-        dict[str, NDArray | None]
-            The dictionary containing the collected data.
-            If None, the data has not been generated.
+        pl.DataFrame
+            The collected data.
 
         """
-        return pl.concat(
-            [
-                self.__media_df,
-                self.__control_df,
-                self.__target_df,
-            ],
-            how="horizontal",
-        )
+        match data_type:
+            case "observed":
+                return pl.concat(
+                    [
+                        self.__media_df,
+                        self.__control_df,
+                        self.__target_df,
+                    ],
+                    how="horizontal",
+                )
+            case "future":
+                return pl.concat(
+                    [
+                        self.__future_media_df,
+                        self.__future_control_df,
+                        self.__future_target_df,
+                    ],
+                    how="horizontal",
+                )
 
     def get_parameters(self: Self) -> tuple[pl.DataFrame, pl.DataFrame]:
         """Get the parameters used in the data generation.
@@ -283,3 +361,88 @@ class DataGenerator:
             },
         )
         return media_param_df, control_param_df
+
+    def generate_new_observation(self: Self, x: NDArray, c: NDArray) -> Self:
+        """Generate new observation given an investment level.
+
+        If there exists any generated future data, this new observation
+        will replace the future data and decrease the value of `self.future_T`
+        by 1.
+
+        Parameters
+        ----------
+        x : NDArray, shape (M, )
+            The investments of the current week
+        c : NDArray, shape (C, )
+            The values of control variables.
+
+        """
+        last_l_week_media = self.__media_df.to_numpy()[-(self.L - 1) :, :]
+        x_series = np.vstack([last_l_week_media, x])
+
+        retention_rates, saturations, shapes = list(
+            zip(
+                *[
+                    (
+                        param["retention_rate"],
+                        param["saturation"],
+                        param["shape"],
+                    )
+                    for param in self.__media_params
+                ]
+            )
+        )
+        retention_rates = np.array(retention_rates).reshape((1, -1))
+        saturations = np.array(saturations).reshape((1, -1))
+        shapes = np.array(shapes).reshape((1, -1))
+
+        gammas = np.array(
+            [param["control_effect"] for param in self.__control_params]
+        ).reshape((1, -1))
+
+        baseline = np.random.normal(
+            self.__baseline_param["baseline"],
+            self.__baseline_param["noise"],
+            size=1,
+        ).item()
+
+        white_noise = np.random.normal(
+            loc=0, scale=self.__target_param["noise"], size=1
+        )
+
+        y_target = (
+            MarketingMixModel.response_function(
+                x_series,
+                retention_rates,
+                saturations,
+                shapes,
+                c,
+                gammas,
+                baseline,
+            )
+            + white_noise
+        )
+
+        # Make changes to the generator's attributes.'
+        self.__baseline_df = self.__baseline_df.vstack(
+            pl.DataFrame([baseline], schema=self.__baseline_df.schema)
+        )
+        self.__control_df = self.__control_df.vstack(
+            pl.DataFrame(c, schema=self.__control_df.schema)
+        )
+        self.__media_df = self.__media_df.vstack(
+            pl.DataFrame(x.reshape((1, -1)), schema=self.__media_df.schema)
+        )
+        self.__target_df = self.__target_df.vstack(
+            pl.DataFrame([y_target.item()], schema=self.__target_df.schema)
+        )
+        self.T += 1
+
+        if self.future_T > 0:
+            self.__future_baseline_df = self.__future_baseline_df.slice(1)
+            self.__future_control_df = self.__future_control_df.slice(1)
+            self.__future_media_df = self.__future_media_df.slice(1)
+            self.__future_target_df = self.__future_target_df.slice(1)
+            self.future_T -= 1
+
+        return self
