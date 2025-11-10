@@ -45,6 +45,10 @@ class ExperimentDesigner:
         self.regularized = False
         self.x_0: NDArray
 
+        self.target_parameters: list[
+            Literal["saturation", "shape", "retention_rate"]
+        ] = ["saturation", "shape", "retention_rate"]
+
         # Boundaries for the experiments
         self.__lower_bound: NDArray | None = None
         self.__upper_bound: NDArray | None = None
@@ -118,6 +122,9 @@ class ExperimentDesigner:
             -(self.l_lookback_window - 1) :, :
         ]
 
+        # Step 5: prepare the samples based on the target variables
+        self.__prepare_samples_based_on_target_variables()
+
         return self
 
     def configure_experiment_space(
@@ -160,6 +167,51 @@ class ExperimentDesigner:
         self.regularized = True
 
         return self
+
+    def configure_target_variables(
+        self: Self,
+        target_parameters: list[
+            Literal["saturation", "shape", "retention_rate"]
+        ],
+    ) -> Self:
+        """Configure target variables to be optimized.
+
+        Parameters
+        ----------
+        target_parameters : list[str]
+            The target parameters to be optimized in the optimal experiment.
+
+        """
+        self.target_parameters = target_parameters
+        self.__prepare_samples_based_on_target_variables()
+
+        return self
+
+    def __prepare_samples_based_on_target_variables(self: Self):
+        """Prepare samples based on the target variables.
+
+        If a variable is not in the list of target variables to be optimized,
+        we only keep the point estimate of that parameter. The point estimate
+        is the mean of the posterior samples.
+
+        """
+        if not self.__samples_added:
+            return
+
+        if "saturation" not in self.target_parameters:
+            self.__saturations = np.ones(self.__saturations.shape) * np.mean(
+                self.__saturations
+            )
+
+        if "shape" not in self.target_parameters:
+            self.__shapes = np.ones(self.__shapes.shape) * np.mean(
+                self.__shapes
+            )
+
+        if "retention_rate" not in self.target_parameters:
+            self.__retention_rates = np.ones(
+                self.__retention_rates.shape
+            ) * np.mean(self.__retention_rates)
 
     def __objective_function(self: Self, x: NDArray) -> float:
         """Calculate objective function for finding the optimal experiment.
