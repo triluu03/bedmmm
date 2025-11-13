@@ -42,7 +42,7 @@ class ExperimentDesigner:
         self.c: NDArray = c
         self.l_lookback_window = 13  # L = 13 weeks
 
-        self.regularized = False
+        self.regularized: Literal["none", "cost", "cost_and_sales"] = "none"
         self.x_0: NDArray
 
         self.target_parameters: list[
@@ -153,7 +153,11 @@ class ExperimentDesigner:
 
         return self
 
-    def configure_regularization(self: Self, x_0: NDArray) -> Self:
+    def configure_regularization(
+        self: Self,
+        x_0: NDArray,
+        regularized_type: Literal["cost", "cost_and_sales"],
+    ) -> Self:
         """Configure the regularized utility function.
 
         Parameters
@@ -161,10 +165,13 @@ class ExperimentDesigner:
         x_0 : NDArray, shape (M, )
             The usual planned investments if no experiments
             are carried out.
+        regularized_type : Literal['cost', 'cost_and_sales']
+            Regularization type. This indicates which utility function
+            to be used when finding the optimal experiment.
 
         """
         self.x_0 = x_0
-        self.regularized = True
+        self.regularized = regularized_type
 
         return self
 
@@ -227,35 +234,50 @@ class ExperimentDesigner:
             The negative utility function (or minimization).
 
         """
-        if self.regularized:
-            d = np.vstack([self.__last_l_week_media, x])
-            d_0 = np.vstack([self.__last_l_week_media, self.x_0])
-            return -self.regularized_expected_information_gain(
-                d=d,
-                d_0=d_0,
-                retention_rates=self.__retention_rates,
-                saturations=self.__saturations,
-                shapes=self.__shapes,
-                c=self.c,
-                gamma_est=self.__gamma_est,
-                baseline_est=self.__baseline_est,
-                sigma_est=self.__sigma_est,
-                random_seed=42,
-            )
-
-        else:
-            d = np.vstack([self.__last_l_week_media, x])
-            return -self.expected_information_gain(
-                d=d,
-                retention_rates=self.__retention_rates,
-                saturations=self.__saturations,
-                shapes=self.__shapes,
-                c=self.c,
-                gamma_est=self.__gamma_est,
-                baseline_est=self.__baseline_est,
-                sigma_est=self.__sigma_est,
-                random_seed=42,
-            )
+        match self.regularized:
+            case "none":
+                d = np.vstack([self.__last_l_week_media, x])
+                return -self.eig(
+                    d=d,
+                    retention_rates=self.__retention_rates,
+                    saturations=self.__saturations,
+                    shapes=self.__shapes,
+                    c=self.c,
+                    gamma_est=self.__gamma_est,
+                    baseline_est=self.__baseline_est,
+                    sigma_est=self.__sigma_est,
+                    random_seed=42,
+                )
+            case "cost":
+                d = np.vstack([self.__last_l_week_media, x])
+                d_0 = np.vstack([self.__last_l_week_media, self.x_0])
+                return -self.cost_regularized_eig(
+                    d=d,
+                    d_0=d_0,
+                    retention_rates=self.__retention_rates,
+                    saturations=self.__saturations,
+                    shapes=self.__shapes,
+                    c=self.c,
+                    gamma_est=self.__gamma_est,
+                    baseline_est=self.__baseline_est,
+                    sigma_est=self.__sigma_est,
+                    random_seed=42,
+                )
+            case "cost_and_sales":
+                d = np.vstack([self.__last_l_week_media, x])
+                d_0 = np.vstack([self.__last_l_week_media, self.x_0])
+                return -self.cost_and_sales_regularized_eig(
+                    d=d,
+                    d_0=d_0,
+                    retention_rates=self.__retention_rates,
+                    saturations=self.__saturations,
+                    shapes=self.__shapes,
+                    c=self.c,
+                    gamma_est=self.__gamma_est,
+                    baseline_est=self.__baseline_est,
+                    sigma_est=self.__sigma_est,
+                    random_seed=42,
+                )
 
     def find_optimal_experiment(self: Self) -> NDArray:
         """Find the optimal experiment.
@@ -309,7 +331,7 @@ class ExperimentDesigner:
         }
 
     @staticmethod
-    def expected_information_gain(
+    def eig(
         d: NDArray,
         retention_rates: NDArray,
         saturations: NDArray,
@@ -400,7 +422,68 @@ class ExperimentDesigner:
         ).mean()
 
     @staticmethod
-    def regularized_expected_information_gain(
+    def cost_regularized_eig(
+        d: NDArray,
+        d_0: NDArray,
+        retention_rates: NDArray,
+        saturations: NDArray,
+        shapes: NDArray,
+        c: NDArray,
+        gamma_est: NDArray,
+        baseline_est: float,
+        sigma_est: float,
+        random_seed: int = 0,
+    ) -> float:
+        """Estimate the cost regularized expected information gain (CREIG).
+
+        This function estimates the EIG with a monteray regularization term.
+        This function punishes the experiments with too extreme media spends.
+
+        Parameters
+        ----------
+        d : NDArray, shape (L, M)
+            The experiment design point, containing the investments
+            of all M channels in the model along with the recorded investments
+            for the last L - 1 weeks (to calculate the carryover effects).
+        d_0 : NDArray, shape (L, M)
+            The investments if no experiments are carried out.
+        retention_rates : NDArray, shape (S1, S2, M)
+            S samples of retention rates of all M channels.
+        saturations : NDArray, shape (S1, S2, M)
+            S samples of saturations of all M channels.
+        shapes : NDArray, shape (S1, S2, M)
+            S samples of shapes of all M channels.
+        c : NDArray, shape (C, )
+            The control variables values.
+        gamma_est : NDArray, shape (C, )
+            The point estimate of the control effects.
+        baseline_est : float
+            The point estimate of the baseline value.
+        sigma_est : float
+            The point estimate of the scale for the observational
+            normal distribution.
+        random_seed : int, default 0
+            The random seed to draw samples for the target values.
+
+        """
+        # Expected information gain (EIG)
+        eig = ExperimentDesigner.eig(
+            d,
+            retention_rates,
+            saturations,
+            shapes,
+            c,
+            gamma_est,
+            baseline_est,
+            sigma_est,
+            random_seed,
+        )
+        regularized_term = np.mean(np.abs(d - d_0))
+
+        return eig + np.log(regularized_term)
+
+    @staticmethod
+    def cost_and_sales_regularized_eig(
         d: NDArray,
         d_0: NDArray,
         retention_rates: NDArray,
@@ -444,7 +527,7 @@ class ExperimentDesigner:
 
         """
         # Expected information gain (EIG)
-        eig = ExperimentDesigner.expected_information_gain(
+        eig = ExperimentDesigner.eig(
             d,
             retention_rates,
             saturations,
@@ -480,7 +563,7 @@ class ExperimentDesigner:
             )
         ) - np.mean(d - d_0)
 
-        return eig + regularized_term / 100
+        return eig + np.log(regularized_term)
 
 
 def calculate_optimal_sample_number(n_samples: int) -> tuple[int, int]:
