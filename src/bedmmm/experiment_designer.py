@@ -42,8 +42,11 @@ class ExperimentDesigner:
         self.c: NDArray = c
         self.l_lookback_window = 13  # L = 13 weeks
 
-        self.regularized: Literal["none", "cost", "cost_and_sales"] = "none"
+        self.regularized_type: Literal["none", "cost", "cost_and_sales"] = (
+            "none"
+        )
         self.x_0: NDArray
+        self.regularized_weight: float
 
         self.target_parameters: list[
             Literal["saturation", "shape", "retention_rate"]
@@ -156,6 +159,7 @@ class ExperimentDesigner:
     def configure_regularization(
         self: Self,
         x_0: NDArray,
+        regularized_weight: float,
         regularized_type: Literal["cost", "cost_and_sales"],
     ) -> Self:
         """Configure the regularized utility function.
@@ -165,13 +169,16 @@ class ExperimentDesigner:
         x_0 : NDArray, shape (M, )
             The usual planned investments if no experiments
             are carried out.
+        regularized_weight : float
+            The weight to be used in the regularization.
         regularized_type : Literal['cost', 'cost_and_sales']
             Regularization type. This indicates which utility function
             to be used when finding the optimal experiment.
 
         """
         self.x_0 = x_0
-        self.regularized = regularized_type
+        self.regularized_type = regularized_type
+        self.regularized_weight = regularized_weight
 
         return self
 
@@ -234,7 +241,7 @@ class ExperimentDesigner:
             The negative utility function (or minimization).
 
         """
-        match self.regularized:
+        match self.regularized_type:
             case "none":
                 d = np.vstack([self.__last_l_week_media, x])
                 return -self.eig(
@@ -261,6 +268,7 @@ class ExperimentDesigner:
                     gamma_est=self.__gamma_est,
                     baseline_est=self.__baseline_est,
                     sigma_est=self.__sigma_est,
+                    regularized_weight=self.regularized_weight,
                     random_seed=42,
                 )
             case "cost_and_sales":
@@ -276,6 +284,7 @@ class ExperimentDesigner:
                     gamma_est=self.__gamma_est,
                     baseline_est=self.__baseline_est,
                     sigma_est=self.__sigma_est,
+                    regularized_weight=self.regularized_weight,
                     random_seed=42,
                 )
 
@@ -432,6 +441,7 @@ class ExperimentDesigner:
         gamma_est: NDArray,
         baseline_est: float,
         sigma_est: float,
+        regularized_weight: float,
         random_seed: int = 0,
     ) -> float:
         """Estimate the cost regularized expected information gain (CREIG).
@@ -462,6 +472,8 @@ class ExperimentDesigner:
         sigma_est : float
             The point estimate of the scale for the observational
             normal distribution.
+        regularized_weight : float
+            The weight used in regularization.
         random_seed : int, default 0
             The random seed to draw samples for the target values.
 
@@ -480,7 +492,7 @@ class ExperimentDesigner:
         )
         regularized_term = np.mean(np.abs(d - d_0))
 
-        return eig + np.log(regularized_term)
+        return eig + regularized_weight * np.log(regularized_term)
 
     @staticmethod
     def cost_and_sales_regularized_eig(
@@ -493,6 +505,7 @@ class ExperimentDesigner:
         gamma_est: NDArray,
         baseline_est: float,
         sigma_est: float,
+        regularized_weight: float,
         random_seed: int = 0,
     ) -> float:
         """Estimate the regularized expected information gain (REIG).
@@ -522,6 +535,8 @@ class ExperimentDesigner:
         sigma_est : float
             The point estimate of the scale for the observational
             normal distribution.
+        regularized_weight : float
+            The regularization weight.
         random_seed : int, default 0
             The random seed to draw samples for the target values.
 
@@ -563,7 +578,7 @@ class ExperimentDesigner:
             )
         ) - np.mean(d - d_0)
 
-        return eig + np.log(regularized_term)
+        return eig + regularized_weight * regularized_term
 
 
 def calculate_optimal_sample_number(n_samples: int) -> tuple[int, int]:
