@@ -47,7 +47,9 @@ def plot_generated_data_on_response_curve(
             saturation * (1 - np.exp(-data[feature].to_numpy() / shape)),
             alpha=0.5,
         )
-        ax[i].set_title(f"Response curve for {feature.replace('_', '')}")
+        ax[i].set_title(
+            f"Response curve for {feature.capitalize().replace('_', ' ')}"
+        )
         ax[i].set_xlabel("Investments")
         ax[i].set_ylabel("Diminishing returns")
 
@@ -139,7 +141,7 @@ def plot_posterior_response_curve(
     plt.ylabel("Diminishing Returns")
     plt.title(
         f"Posterior response curve vs Ground truth for "
-        f"{media_feature_name.replace('_', '')}"
+        f"{media_feature_name.capitalize().replace('_', ' ')}"
     )
     plt.legend()
     plt.show()
@@ -286,7 +288,7 @@ def plot_experiment_posterior_response_curve(
     plt.ylabel("Diminishing returns")
     plt.title(
         f"Posterior response curve vs Ground truth for "
-        f"{media_feature_name.replace('_', '')}"
+        f"{media_feature_name.capitalize().replace('_', ' ')}"
     )
     plt.legend()
     plt.show()
