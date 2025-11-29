@@ -49,7 +49,10 @@ def plot_posterior_vs_ground_truth(
         ax[i].set_title(f"{param.capitalize().replace('_', ' ')}")
 
     plt.legend()
-    plt.suptitle("Posterior distributions vs Ground Truth")
+    plt.suptitle(
+        f"Posterior distributions vs Ground Truth for "
+        f"{media_feature_name.replace('_', '')}"
+    )
     plt.show()
 
 
@@ -111,5 +114,8 @@ def plot_experiment_posterior_vs_ground_truth(
         ax[i].set_title(f"{param.capitalize().replace('_', ' ')}")
 
     plt.legend()
-    plt.suptitle("Posterior distributions vs Ground Truth")
+    plt.suptitle(
+        f"Posterior distributions vs Ground truth for "
+        f"{media_feature_name.replace('_', '')}",
+    )
     plt.show()

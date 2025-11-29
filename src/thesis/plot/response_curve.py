@@ -47,9 +47,9 @@ def plot_generated_data_on_response_curve(
             saturation * (1 - np.exp(-data[feature].to_numpy() / shape)),
             alpha=0.5,
         )
-        ax[i].set_title(f"Response curve for {feature}")
+        ax[i].set_title(f"Response curve for {feature.replace('_', '')}")
         ax[i].set_xlabel("Investments")
-        ax[i].set_ylabel("Diminishing Returns")
+        ax[i].set_ylabel("Diminishing returns")
 
     plt.plot()
 
@@ -137,6 +137,10 @@ def plot_posterior_response_curve(
 
     plt.xlabel("Media investments")
     plt.ylabel("Diminishing Returns")
+    plt.title(
+        f"Posterior response curve vs Ground truth for "
+        f"{media_feature_name.replace('_', '')}"
+    )
     plt.legend()
     plt.show()
 
@@ -169,7 +173,15 @@ def plot_experiment_posterior_response_curve(
     """
     media_feature_id = int(media_feature_name.split("_")[1])
 
-    x_space = np.linspace(0, 50, 1000)
+    x_space = np.linspace(
+        start=0,
+        stop=max(
+            data[media_feature_name].max(),
+            experiment_data[media_feature_id],
+        )
+        * 1.5,
+        num=1000,
+    )
 
     # Before experiment
     before_saturation_samples = (
@@ -270,7 +282,11 @@ def plot_experiment_posterior_response_curve(
         marker="D",
     )
 
-    plt.xlabel("Media Spend")
-    plt.ylabel("Diminishing Returns Response")
+    plt.xlabel("Investments")
+    plt.ylabel("Diminishing returns")
+    plt.title(
+        f"Posterior response curve vs Ground truth for "
+        f"{media_feature_name.replace('_', '')}"
+    )
     plt.legend()
     plt.show()
