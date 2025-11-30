@@ -50,7 +50,7 @@ def plot_posterior_vs_ground_truth(
 
     plt.legend()
     plt.suptitle(
-        f"Posterior distributions vs Ground Truth for "
+        f"Posterior distributions vs Ground Truth of "
         f"{media_feature_name.capitalize().replace('_', ' ')}"
     )
     plt.show()
@@ -115,7 +115,7 @@ def plot_experiment_posterior_vs_ground_truth(
 
     plt.legend()
     plt.suptitle(
-        f"Posterior distributions vs Ground truth for "
+        f"Posterior distributions vs Ground truth of "
         f"{media_feature_name.capitalize().replace('_', ' ')}",
     )
     plt.show()

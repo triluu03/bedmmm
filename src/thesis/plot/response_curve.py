@@ -48,7 +48,7 @@ def plot_generated_data_on_response_curve(
             alpha=0.5,
         )
         ax[i].set_title(
-            f"Response curve for {feature.capitalize().replace('_', ' ')}"
+            f"Response curve of {feature.capitalize().replace('_', ' ')}"
         )
         ax[i].set_xlabel("Investments")
         ax[i].set_ylabel("Diminishing returns")
@@ -140,7 +140,7 @@ def plot_posterior_response_curve(
     plt.xlabel("Media investments")
     plt.ylabel("Diminishing Returns")
     plt.title(
-        f"Posterior response curve vs Ground truth for "
+        f"Posterior response curve vs Ground truth of "
         f"{media_feature_name.capitalize().replace('_', ' ')}"
     )
     plt.legend()
@@ -287,7 +287,7 @@ def plot_experiment_posterior_response_curve(
     plt.xlabel("Investments")
     plt.ylabel("Diminishing returns")
     plt.title(
-        f"Posterior response curve vs Ground truth for "
+        f"Posterior response curve vs Ground truth of "
         f"{media_feature_name.capitalize().replace('_', ' ')}"
     )
     plt.legend()
