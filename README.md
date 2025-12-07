@@ -1,10 +1,18 @@
 # Bayesian experimental design (BED) in Marketing Mix Modeling (MMM)
 
-## Next steps
-- Implement the regularized expected information gain (REIG).
-- Implement a way to incorporate the experiment data into the model.
-- Fine-tune the data generation process and the MMM model to have more meaningful experiments:
-    - Generate one channel with much higher investments compared to others
-    - Set the priors of one channel to be very uncertain.
-    - Bring the geo-location/hierarchical model into use (tentative)
-- Improve / find the most suitable optimization algorithm for this problem.
+This repository contains source code and the experiments (implemented using Jupyter Notebook) for the Master thesis titled "Bayesian Experimental Design in Marketing Mix Modeling" by Tri Luu at the University of Helsinki.
+
+For more information, please feel free to contact me via email:
+- University email: tri.luu@helsinki.fi
+- Personal email: ductriluu.work@gmail.com
+
+
+## Running the experiment notebooks
+To run the experiment Jupyter notebooks, please follow these steps:
+- Install `uv` (if you haven't already): https://docs.astral.sh/uv/getting-started/installation/
+- Clone the repository and navigate to the root folder of the project.
+- Run `uv sync` to setup the environment.
+- Add the project `src/` folder to the `PYTHONPATH` with: `export PYTHONPATH=$(pwd)/src/:$PYTHONPATH`
+- Activate the virual environment with: `source ./.venv/bin/activate`
+
+Now, you can either launch the Jupyter notebook server or run the notebook using Visual Studio Code.
