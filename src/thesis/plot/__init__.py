@@ -8,6 +8,8 @@ from thesis.plot.posterior_distribution import (
 )
 from thesis.plot.response_curve import (
     plot_experiment_posterior_response_curve,
+    plot_experiment_posterior_response_curve_multiple,
     plot_generated_data_on_response_curve,
     plot_posterior_response_curve,
+    plot_posterior_response_curve_multiple,
 )

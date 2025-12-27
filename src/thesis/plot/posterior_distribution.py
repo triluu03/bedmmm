@@ -10,7 +10,8 @@ def plot_posterior_vs_ground_truth(
     idata: az.InferenceData,
     media_param_df: pl.DataFrame,
     media_feature_names: list[str],
-    figsize: tuple[int, int] = (18, 5),
+    figsize: tuple[int, int] = (20, 8),
+    subplot_adjust_kwargs: dict[str, float] = {"top": 0.80, "hspace": 0.3},
 ) -> None:
     """Plot the posterior distributions along with the ground truth.
 
@@ -22,17 +23,32 @@ def plot_posterior_vs_ground_truth(
         The media parameters dataframe.
     media_feature_names : list[str]
         The list of media feature names to plot against.
-    figsize : tuple[int, int], default (18, 5)
+    figsize : tuple[int, int], default (20, 8)
         The size of the Matplotlib Figure.
+    subplot_adjust_kwargs : dict[str, float]
+        - Default {"top": 0.80, "hspace": 0.3}
 
     """
+    plt.rcParams.update(
+        {
+            "font.size": 18,
+            "axes.labelsize": 20,
+            "axes.titlesize": 20,
+            "legend.fontsize": 18,
+            "xtick.labelsize": 18,
+            "ytick.labelsize": 18,
+            "axes.spines.top": False,
+            "axes.spines.right": False,
+        }
+    )
+
     fig, ax = plt.subplots(
         nrows=len(media_feature_names),
         ncols=3,
         figsize=figsize,
     )
     plt.tight_layout()
-    plt.subplots_adjust(top=0.95, hspace=0.3)
+    plt.subplots_adjust(**subplot_adjust_kwargs)
 
     if len(media_feature_names) == 1:
         ax = ax[np.newaxis, :]
@@ -45,7 +61,9 @@ def plot_posterior_vs_ground_truth(
     for row, (media_feature_id, media_feature_name) in enumerate(
         zip(media_feature_ids, media_feature_names)
     ):
-        for col, param in enumerate(["saturation", "shape", "retention_rate"]):
+        for col, (param, subtitle_prefix) in enumerate(
+            zip(["saturation", "shape", "retention_rate"], ["a)", "b)", "c)"])
+        ):
             h1 = ax[row, col].hist(
                 idata.posterior[f"{param}s"]
                 .values[:, :, media_feature_id]
@@ -65,7 +83,11 @@ def plot_posterior_vs_ground_truth(
                 colors="C2",
                 label="ground truth",
             )
-            ax[row, col].set_title(f"{param.capitalize().replace('_', ' ')}")
+            ax[row, col].set_title(
+                f"{media_feature_id + 1}{subtitle_prefix} {param.capitalize().replace('_', ' ')}"
+            )
+            ax[row, col].set_xlabel("Value")
+            ax[row, col].set_ylabel("Frequency", labelpad=10)
 
             if len(legend_handles) == 0:
                 legend_handles = [h1[2][0], h2]
@@ -78,12 +100,12 @@ def plot_posterior_vs_ground_truth(
             x=0.5,
             y=y_top + 0.1 / len(media_feature_names),
             s=(
-                f"Posterior distributions vs Ground Truth of "
-                f"Media Channel {media_feature_id + 1}"
+                f"{media_feature_id + 1}) Posterior distributions and Ground Truth of "
+                f"Channel {media_feature_id + 1}'s parameters"
             ),
             ha="center",
             va="center",
-            fontsize=15,
+            fontsize=22,
         )
 
     fig.legend(
@@ -100,7 +122,8 @@ def plot_experiment_posterior_vs_ground_truth(
     idata_after_experiment: az.InferenceData,
     media_param_df: pl.DataFrame,
     media_feature_names: list[str],
-    figsize: tuple[int, int] = (18, 5),
+    figsize: tuple[int, int] = (20, 8),
+    subplot_adjust_kwargs: dict[str, float] = {"top": 0.78, "hspace": 0.3},
 ) -> None:
     """Plot the posterior before and after experiment with ground truth.
 
@@ -114,10 +137,23 @@ def plot_experiment_posterior_vs_ground_truth(
         The media parameters dataframe.
     media_feature_names : list[str]
         The list of media feature names to plot against.
-    figsize : tuple[int, int], default (18, 5)
+    figsize : tuple[int, int], default (20, 9)
         The size of the Matplotlib's figure
 
     """
+    plt.rcParams.update(
+        {
+            "font.size": 18,
+            "axes.labelsize": 20,
+            "axes.titlesize": 20,
+            "legend.fontsize": 18,
+            "xtick.labelsize": 18,
+            "ytick.labelsize": 18,
+            "axes.spines.top": False,
+            "axes.spines.right": False,
+        }
+    )
+
     media_feature_ids = [
         int(name.split("_")[1]) for name in media_feature_names
     ]
@@ -128,13 +164,18 @@ def plot_experiment_posterior_vs_ground_truth(
         figsize=figsize,
     )
     plt.tight_layout()
-    plt.subplots_adjust(top=0.95, hspace=0.3)
+    plt.subplots_adjust(**subplot_adjust_kwargs)
+
+    if len(media_feature_names) == 1:
+        ax = ax[np.newaxis, :]
 
     legend_handles, legend_labels = ([], [])
     for row, (media_feature_id, media_feature_name) in enumerate(
         zip(media_feature_ids, media_feature_names)
     ):
-        for col, param in enumerate(["saturation", "shape", "retention_rate"]):
+        for col, (param, subtitle_prefix) in enumerate(
+            zip(["saturation", "shape", "retention_rate"], ["a)", "b)", "c)"])
+        ):
             h1 = ax[row, col].hist(
                 idata_before_experiment.posterior[f"{param}s"]
                 .values[:, :, media_feature_id]
@@ -165,7 +206,11 @@ def plot_experiment_posterior_vs_ground_truth(
                 color="C2",
                 label="ground truth",
             )
-            ax[row, col].set_title(f"{param.capitalize().replace('_', ' ')}")
+            ax[row, col].set_title(
+                f"{media_feature_id + 1}{subtitle_prefix} {param.capitalize().replace('_', ' ')}"
+            )
+            ax[row, col].set_xlabel("Value")
+            ax[row, col].set_ylabel("Frequency", labelpad=10)
 
             if len(legend_handles) == 0:
                 legend_handles = [h1[2][0], h2[2][0], h3]
@@ -182,12 +227,12 @@ def plot_experiment_posterior_vs_ground_truth(
             x=0.5,
             y=y_top + 0.1 / len(media_feature_names),
             s=(
-                f"Posterior distributions vs Ground Truth of "
-                f"Media Channel {media_feature_id + 1}"
+                f"{media_feature_id + 1}) Posterior distributions and Ground Truth of "
+                f"Channel {media_feature_id + 1}'s parameters"
             ),
             ha="center",
             va="center",
-            fontsize=15,
+            fontsize=22,
         )
 
     fig.legend(
