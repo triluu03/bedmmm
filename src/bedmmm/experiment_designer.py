@@ -52,9 +52,10 @@ class ExperimentDesigner:
             Literal["saturation", "shape", "retention_rate"]
         ] = ["saturation", "shape", "retention_rate"]
 
-        # Boundaries for the experiments
+        # Boundaries for the experiments (aka: experiment space)
         self.__lower_bound: NDArray | None = None
         self.__upper_bound: NDArray | None = None
+        self.__total_budget: float | None = None
 
         # Posterior samples
         self.__samples_added: bool = False
@@ -131,7 +132,10 @@ class ExperimentDesigner:
         return self
 
     def configure_experiment_space(
-        self: Self, lower_bound: NDArray, upper_bound: NDArray
+        self: Self,
+        lower_bound: NDArray,
+        upper_bound: NDArray,
+        total_budget: float | None = None,
     ) -> Self:
         """Configure the experiment space.
 
@@ -146,6 +150,8 @@ class ExperimentDesigner:
         upper_bound : NDArray, shape (n_media_channels, )
             The upper bound of the investments for `n_media_channels`
             for the experiments.
+        total_budget : float | None, default None
+            The total budget constraint for the optimization.
 
         """
         assert lower_bound.shape == (self.n_media_channels,)
@@ -153,6 +159,7 @@ class ExperimentDesigner:
 
         self.__lower_bound = lower_bound
         self.__upper_bound = upper_bound
+        self.__total_budget = total_budget
 
         return self
 
@@ -318,12 +325,27 @@ class ExperimentDesigner:
         res = scipy.optimize.minimize(
             fun=self.__objective_function,
             x0=np.ones(self.n_media_channels),  # NOTE: placeholder
-            method="L-BFGS-B",
+            method="COBYLA",
             bounds=scipy.optimize.Bounds(
                 lb=lb,
                 ub=ub,
                 keep_feasible=True,
             ),
+            constraints=[
+                {
+                    "type": "ineq",
+                    "fun": lambda x: self.__total_budget - np.sum(x),
+                }
+            ]
+            if self.__total_budget is not None
+            else [],
+            # constraints=LinearConstraint(
+            #     A=np.ones((1, self.n_media_channels)),
+            #     lb=0.0,
+            #     ub=self.__total_budget
+            #     if self.__total_budget is not None
+            #     else np.inf,
+            # ),
         )
 
         print(res)
