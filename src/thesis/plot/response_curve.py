@@ -4,6 +4,7 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
+from bedmmm.functions.carryover import adstock_numpy
 
 
 def plot_generated_data_on_response_curve(
@@ -57,7 +58,6 @@ def plot_generated_data_on_response_curve(
 
 def plot_posterior_response_curve(
     idata: az.InferenceData,
-    data: pl.DataFrame,
     media_param_df: pl.DataFrame,
     media_feature_name: str,
     figsize: tuple[int, int] = (15, 8),
@@ -68,14 +68,25 @@ def plot_posterior_response_curve(
     ----------
     idata : az.InferenceData
         The inference data with posterior distributions.
-    data : pl.DataFrame
-        The generated data.
     media_param_df : pl.DataFrame
         The media parameters dataframe.
     media_feature_name : str
         The media feature name to plot against.
 
     """
+    plt.rcParams.update(
+        {
+            "font.size": 18,
+            "axes.labelsize": 20,
+            "axes.titlesize": 20,
+            "legend.fontsize": 18,
+            "xtick.labelsize": 18,
+            "ytick.labelsize": 18,
+            "axes.spines.top": False,
+            "axes.spines.right": False,
+        }
+    )
+
     media_feature_id = int(media_feature_name.split("_")[1])
 
     # True response curve parameters
@@ -126,23 +137,9 @@ def plot_posterior_response_curve(
         label="Ground truth",
         color="C1",
     )
-    plt.scatter(
-        data["media_0"].to_numpy(),
-        true_saturation
-        * (1 - np.exp(-data["media_0"].to_numpy() / true_shape)),
-        label="Observed data points",
-        edgecolors="black",
-        s=25,
-        linewidths=0.3,
-        color="C3",
-    )
 
     plt.xlabel("Media investments (x)")
     plt.ylabel("Diminishing returns")
-    plt.title(
-        f"Posterior saturation curve and Ground truth of "
-        f"Channel {media_feature_id + 1}"
-    )
     plt.legend()
     plt.show()
 
@@ -288,22 +285,22 @@ def plot_posterior_response_curve_multiple(
 
 
 def plot_experiment_posterior_response_curve(
-    idata_before_experiment: az.InferenceData,
-    idata_after_experiment: az.InferenceData,
+    idata_without_experiment: az.InferenceData,
+    idata_with_experiment: az.InferenceData,
     data: pl.DataFrame,
     experiment_data: np.typing.NDArray,
     media_param_df: pl.DataFrame,
     media_feature_name: str,
     figsize: tuple[int, int] = (15, 8),
 ) -> None:
-    """Plot the posterior response curves before and after experiment.
+    """Plot the posterior response curves without and with experiment.
 
     Parameters
     ----------
-    idata_before_experiment : az.InferenceData
-        The inference data before experiment.
-    idata_after_experiment : az.InferenceData
-        The inference data after experiment.
+    idata_without_experiment : az.InferenceData
+        The inference data without experiment.
+    idata_with_experiment : az.InferenceData
+        The inference data with experiment.
     data : pl.DataFrame
         The generated data.
     experiment_data : NDArray
@@ -314,6 +311,19 @@ def plot_experiment_posterior_response_curve(
         The media feature name to plot against.
 
     """
+    plt.rcParams.update(
+        {
+            "font.size": 18,
+            "axes.labelsize": 20,
+            "axes.titlesize": 20,
+            "legend.fontsize": 18,
+            "xtick.labelsize": 18,
+            "ytick.labelsize": 18,
+            "axes.spines.top": False,
+            "axes.spines.right": False,
+        }
+    )
+
     media_feature_id = int(media_feature_name.split("_")[1])
 
     x_space = np.linspace(
@@ -326,49 +336,49 @@ def plot_experiment_posterior_response_curve(
         num=1000,
     )
 
-    # Before experiment
-    before_saturation_samples = (
-        idata_before_experiment.posterior["saturations"]
+    # without experiment
+    without_saturation_samples = (
+        idata_without_experiment.posterior["saturations"]
         .values[:, :, media_feature_id]
         .flatten()[:, np.newaxis]
     )
-    before_shape_samples = (
-        idata_before_experiment.posterior["shapes"]
+    without_shape_samples = (
+        idata_without_experiment.posterior["shapes"]
         .values[:, :, media_feature_id]
         .flatten()[:, np.newaxis]
     )
-    before_y_samples = before_saturation_samples * (
-        1 - np.exp(-x_space / before_shape_samples)
+    without_y_samples = without_saturation_samples * (
+        1 - np.exp(-x_space / without_shape_samples)
     )
-    before_y_samples = np.apply_along_axis(
+    without_y_samples = np.apply_along_axis(
         lambda samples: az.hdi(samples, hdi_prob=0.94),
         axis=0,
-        arr=before_y_samples,
+        arr=without_y_samples,
     )
-    before_y_lower_hdi = before_y_samples[0, :]
-    before_y_upper_hdi = before_y_samples[1, :]
+    without_y_lower_hdi = without_y_samples[0, :]
+    without_y_upper_hdi = without_y_samples[1, :]
 
-    # After experiments
-    after_saturation_samples = (
-        idata_after_experiment.posterior["saturations"]
+    # with experiments
+    with_saturation_samples = (
+        idata_with_experiment.posterior["saturations"]
         .values[:, :, media_feature_id]
         .flatten()[:, np.newaxis]
     )
-    after_shape_samples = (
-        idata_after_experiment.posterior["shapes"]
+    with_shape_samples = (
+        idata_with_experiment.posterior["shapes"]
         .values[:, :, media_feature_id]
         .flatten()[:, np.newaxis]
     )
-    after_y_samples = after_saturation_samples * (
-        1 - np.exp(-x_space / after_shape_samples)
+    with_y_samples = with_saturation_samples * (
+        1 - np.exp(-x_space / with_shape_samples)
     )
-    after_y_samples = np.apply_along_axis(
+    with_y_samples = np.apply_along_axis(
         lambda samples: az.hdi(samples, hdi_prob=0.94),
         axis=0,
-        arr=after_y_samples,
+        arr=with_y_samples,
     )
-    after_y_lower_hdi = after_y_samples[0, :]
-    after_y_upper_hdi = after_y_samples[1, :]
+    with_y_lower_hdi = with_y_samples[0, :]
+    with_y_upper_hdi = with_y_samples[1, :]
 
     # Ground truth
     true_saturation = media_param_df.filter(
@@ -382,19 +392,19 @@ def plot_experiment_posterior_response_curve(
     plt.figure(figsize=figsize)
     plt.fill_between(
         x=x_space,
-        y1=before_y_lower_hdi,
-        y2=before_y_upper_hdi,
+        y1=without_y_lower_hdi,
+        y2=without_y_upper_hdi,
         color="C0",
         alpha=0.2,
-        label="94% HDI before experiment",
+        label="94% HDI without experiment",
     )
     plt.fill_between(
         x=x_space,
-        y1=after_y_lower_hdi,
-        y2=after_y_upper_hdi,
+        y1=with_y_lower_hdi,
+        y2=with_y_upper_hdi,
         color="C2",
         alpha=0.2,
-        label="94% HDI after experiment",
+        label="94% HDI with experiment",
     )
     plt.plot(
         x_space,
@@ -404,54 +414,57 @@ def plot_experiment_posterior_response_curve(
     )
 
     plt.scatter(
-        data[media_feature_name].to_numpy(),
-        true_saturation
-        * (1 - np.exp(-data[media_feature_name].to_numpy() / true_shape)),
-        label="Observed data points",
-        color="C3",
-        edgecolors="black",
-        s=25,
-        linewidths=0.3,
-    )
-    plt.scatter(
         experiment_data[media_feature_id],
         true_saturation
-        * (1 - np.exp(-experiment_data[media_feature_id] / true_shape)),
+        * (
+            1
+            - np.exp(
+                -adstock_numpy(
+                    np.concatenate(
+                        [
+                            data[media_feature_name].to_numpy()[-11:],
+                            [experiment_data[media_feature_id]],
+                        ]
+                    ),
+                    retention_rate=media_param_df.filter(
+                        pl.col("media_feature") == media_feature_name
+                    )
+                    .select(pl.col("retention_rate"))
+                    .item(),
+                )[-1]
+                / true_shape
+            )
+        ),
         label="Experiment data point",
         color="C4",
         edgecolors="black",
         s=50,
         linewidths=0.3,
-        marker="D",
     )
 
-    plt.xlabel("Investments (x)")
+    plt.xlabel("Media investments (x)")
     plt.ylabel("Diminishing returns")
-    plt.title(
-        f"Posterior saturation curve and Ground truth of "
-        f"Channel {media_feature_id + 1}"
-    )
     plt.legend()
     plt.show()
 
 
 def plot_experiment_posterior_response_curve_multiple(
-    idata_before_experiment: az.InferenceData,
-    idata_after_experiment: az.InferenceData,
+    idata_without_experiment: az.InferenceData,
+    idata_with_experiment: az.InferenceData,
     data: pl.DataFrame,
     experiment_data,
     media_param_df: pl.DataFrame,
     media_feature_names: list[str],
     figsize: tuple[int, int] = (25, 16),
 ) -> None:
-    """Plot the posterior response curves before and after experiment.
+    """Plot the posterior response curves without and with experiment.
 
     Parameters
     ----------
-    idata_before_experiment : az.InferenceData
-        The inference data before experiment.
-    idata_after_experiment : az.InferenceData
-        The inference data after experiment.
+    idata_without_experiment : az.InferenceData
+        The inference data without experiment.
+    idata_with_experiment : az.InferenceData
+        The inference data with experiment.
     data : pl.DataFrame
         The generated data.
     experiment_data : NDArray
@@ -510,49 +523,49 @@ def plot_experiment_posterior_response_curve_multiple(
             num=1000,
         )
 
-        # Before experiment
-        before_saturation_samples = (
-            idata_before_experiment.posterior["saturations"]
+        # without experiment
+        without_saturation_samples = (
+            idata_without_experiment.posterior["saturations"]
             .values[:, :, media_feature_id]
             .flatten()[:, np.newaxis]
         )
-        before_shape_samples = (
-            idata_before_experiment.posterior["shapes"]
+        without_shape_samples = (
+            idata_without_experiment.posterior["shapes"]
             .values[:, :, media_feature_id]
             .flatten()[:, np.newaxis]
         )
-        before_y_samples = before_saturation_samples * (
-            1 - np.exp(-x_space / before_shape_samples)
+        without_y_samples = without_saturation_samples * (
+            1 - np.exp(-x_space / without_shape_samples)
         )
-        before_y_samples = np.apply_along_axis(
+        without_y_samples = np.apply_along_axis(
             lambda samples: az.hdi(samples, hdi_prob=0.94),
             axis=0,
-            arr=before_y_samples,
+            arr=without_y_samples,
         )
-        before_y_lower_hdi = before_y_samples[0, :]
-        before_y_upper_hdi = before_y_samples[1, :]
+        without_y_lower_hdi = without_y_samples[0, :]
+        without_y_upper_hdi = without_y_samples[1, :]
 
-        # After experiments
-        after_saturation_samples = (
-            idata_after_experiment.posterior["saturations"]
+        # with experiments
+        with_saturation_samples = (
+            idata_with_experiment.posterior["saturations"]
             .values[:, :, media_feature_id]
             .flatten()[:, np.newaxis]
         )
-        after_shape_samples = (
-            idata_after_experiment.posterior["shapes"]
+        with_shape_samples = (
+            idata_with_experiment.posterior["shapes"]
             .values[:, :, media_feature_id]
             .flatten()[:, np.newaxis]
         )
-        after_y_samples = after_saturation_samples * (
-            1 - np.exp(-x_space / after_shape_samples)
+        with_y_samples = with_saturation_samples * (
+            1 - np.exp(-x_space / with_shape_samples)
         )
-        after_y_samples = np.apply_along_axis(
+        with_y_samples = np.apply_along_axis(
             lambda samples: az.hdi(samples, hdi_prob=0.94),
             axis=0,
-            arr=after_y_samples,
+            arr=with_y_samples,
         )
-        after_y_lower_hdi = after_y_samples[0, :]
-        after_y_upper_hdi = after_y_samples[1, :]
+        with_y_lower_hdi = with_y_samples[0, :]
+        with_y_upper_hdi = with_y_samples[1, :]
 
         # Ground truth
         true_saturation = media_param_df.filter(
@@ -565,19 +578,19 @@ def plot_experiment_posterior_response_curve_multiple(
         # Final plots
         h1 = ax[row, col].fill_between(
             x=x_space,
-            y1=before_y_lower_hdi,
-            y2=before_y_upper_hdi,
+            y1=without_y_lower_hdi,
+            y2=without_y_upper_hdi,
             color="C0",
             alpha=0.2,
-            label="94% HDI before experiment",
+            label="94% HDI without experiment",
         )
         h2 = ax[row, col].fill_between(
             x=x_space,
-            y1=after_y_lower_hdi,
-            y2=after_y_upper_hdi,
+            y1=with_y_lower_hdi,
+            y2=with_y_upper_hdi,
             color="C2",
             alpha=0.2,
-            label="94% HDI after experiment",
+            label="94% HDI with experiment",
         )
         h3 = ax[row, col].plot(
             x_space,
@@ -612,8 +625,8 @@ def plot_experiment_posterior_response_curve_multiple(
             legend_handles.extend([h1, h2, h3[0], h4, h5])
             legend_labels.extend(
                 [
-                    "94% HDI before experiment",
-                    "94% HDI after experiment",
+                    "94% HDI without experiment",
+                    "94% HDI with experiment",
                     "Ground truth",
                     "Observed data points",
                     "Experiment data point",

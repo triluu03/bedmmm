@@ -4,6 +4,18 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
+from scipy.stats import gaussian_kde
+
+POSTERIOR_DISTRIBUTION_PLOT_KWARGS: dict[str, float] = {
+    "alpha": 0.4,
+}
+
+MEDIA_FEATURE_SUBPLOT_TITLE_PREFIXES: dict[str, str] = {
+    "media_0": "(a)",
+    "media_1": "(b)",
+    "media_2": "(c)",
+    "media_3": "(d)",
+}
 
 
 def plot_posterior_vs_ground_truth(
@@ -11,7 +23,7 @@ def plot_posterior_vs_ground_truth(
     media_param_df: pl.DataFrame,
     media_feature_names: list[str],
     figsize: tuple[int, int] = (20, 8),
-    subplot_adjust_kwargs: dict[str, float] = {"top": 0.80, "hspace": 0.3},
+    subplot_adjust_kwargs: dict[str, float] = {"top": 0.90, "hspace": 0.3},
 ) -> None:
     """Plot the posterior distributions along with the ground truth.
 
@@ -61,18 +73,26 @@ def plot_posterior_vs_ground_truth(
     for row, (media_feature_id, media_feature_name) in enumerate(
         zip(media_feature_ids, media_feature_names)
     ):
-        for col, (param, subtitle_prefix) in enumerate(
-            zip(["saturation", "shape", "retention_rate"], ["a)", "b)", "c)"])
-        ):
-            h1 = ax[row, col].hist(
+        for col, param in enumerate(["saturation", "shape", "retention_rate"]):
+            posterior_samples = (
                 idata.posterior[f"{param}s"]
                 .values[:, :, media_feature_id]
-                .flatten(),
-                bins=100,
-                density=True,
-                histtype="step",
-                alpha=0.7,
+                .flatten()
+            )
+            kde = gaussian_kde(posterior_samples)
+            x_space = np.linspace(
+                posterior_samples.min() - 0.05,
+                posterior_samples.max() + 0.05,
+                1000,
+            )
+            y_prob_density = kde(x_space)
+
+            h1 = ax[row, col].fill_between(
+                x_space,
+                y_prob_density,
+                color="C0",
                 label="posterior distributions",
+                **POSTERIOR_DISTRIBUTION_PLOT_KWARGS,
             )
             h2 = ax[row, col].vlines(
                 media_param_df.filter(
@@ -83,30 +103,27 @@ def plot_posterior_vs_ground_truth(
                 colors="C2",
                 label="ground truth",
             )
-            ax[row, col].set_title(
-                f"{media_feature_id + 1}{subtitle_prefix} {param.capitalize().replace('_', ' ')}"
-            )
-            ax[row, col].set_xlabel("Value")
-            ax[row, col].set_ylabel("Frequency", labelpad=10)
+            ax[row, col].set_xlabel(f"{param.capitalize().replace('_', ' ')}")
+            ax[row, col].set_ylabel("Probability density", labelpad=10)
 
             if len(legend_handles) == 0:
-                legend_handles = [h1[2][0], h2]
+                legend_handles = [h1, h2]
                 legend_labels = ["Posterior distribution", "Ground truth"]
 
-        # Add the title of each row
-        row_axes = ax[row, :]
-        y_top = max(a.get_position().y1 for a in row_axes)
-        fig.text(
-            x=0.5,
-            y=y_top + 0.1 / len(media_feature_names),
-            s=(
-                f"{media_feature_id + 1}) Posterior distributions and Ground Truth of "
-                f"Channel {media_feature_id + 1}'s parameters"
-            ),
-            ha="center",
-            va="center",
-            fontsize=22,
-        )
+        if len(media_feature_names) > 1:
+            # Add the title of each row
+            row_axes = ax[row, :]
+            y_top = max(a.get_position().y1 for a in row_axes)
+            x_left = min(a.get_position().x0 for a in row_axes)
+            fig.text(
+                x=x_left,
+                y=y_top + 0.05 / len(media_feature_names),
+                s=(
+                    f"{MEDIA_FEATURE_SUBPLOT_TITLE_PREFIXES[media_feature_name]}"
+                    f" Channel {media_feature_id + 1} parameters"
+                ),
+                fontsize=22,
+            )
 
     fig.legend(
         handles=legend_handles,
@@ -118,21 +135,21 @@ def plot_posterior_vs_ground_truth(
 
 
 def plot_experiment_posterior_vs_ground_truth(
-    idata_before_experiment: az.InferenceData,
-    idata_after_experiment: az.InferenceData,
+    idata_without_experiment: az.InferenceData,
+    idata_with_experiment: az.InferenceData,
     media_param_df: pl.DataFrame,
     media_feature_names: list[str],
     figsize: tuple[int, int] = (20, 8),
-    subplot_adjust_kwargs: dict[str, float] = {"top": 0.78, "hspace": 0.3},
+    subplot_adjust_kwargs: dict[str, float] = {"top": 0.90, "hspace": 0.3},
 ) -> None:
-    """Plot the posterior before and after experiment with ground truth.
+    """Plot the posterior without and with experiment with ground truth.
 
     Parameters
     ----------
-    idata_before_experiment : az.InferenceData
-        The inference data before experiment.
-    idata_after_experiment : az.InferenceData
-        The inference data after experiment.
+    idata_without_experiment : az.InferenceData
+        The inference data without experiment.
+    idata_with_experiment : az.InferenceData
+        The inference data with experiment.
     media_param_df : pl.DataFrame
         The media parameters dataframe.
     media_feature_names : list[str]
@@ -173,30 +190,51 @@ def plot_experiment_posterior_vs_ground_truth(
     for row, (media_feature_id, media_feature_name) in enumerate(
         zip(media_feature_ids, media_feature_names)
     ):
-        for col, (param, subtitle_prefix) in enumerate(
-            zip(["saturation", "shape", "retention_rate"], ["a)", "b)", "c)"])
-        ):
-            h1 = ax[row, col].hist(
-                idata_before_experiment.posterior[f"{param}s"]
+        for col, param in enumerate(["saturation", "shape", "retention_rate"]):
+            without_experiment_samples = (
+                idata_without_experiment.posterior[f"{param}s"]
                 .values[:, :, media_feature_id]
-                .flatten(),
-                bins=100,
-                density=True,
-                histtype="step",
-                alpha=0.7,
-                label="before experiment",
+                .flatten()
             )
-            h2 = ax[row, col].hist(
-                idata_after_experiment.posterior[f"{param}s"]
+            without_experiment_kde = gaussian_kde(without_experiment_samples)
+            without_experiment_x_space = np.linspace(
+                without_experiment_samples.min(),
+                without_experiment_samples.max(),
+                1000,
+            )
+            without_experiment_y_prob_density = without_experiment_kde(
+                without_experiment_x_space
+            )
+            h1 = ax[row, col].fill_between(
+                without_experiment_x_space,
+                without_experiment_y_prob_density,
+                color="C0",
+                label="without experiment",
+                **POSTERIOR_DISTRIBUTION_PLOT_KWARGS,
+            )
+
+            with_experiment_samples = (
+                idata_with_experiment.posterior[f"{param}s"]
                 .values[:, :, media_feature_id]
-                .flatten(),
-                bins=100,
-                density=True,
-                histtype="step",
-                alpha=0.7,
+                .flatten()
+            )
+            with_experiment_kde = gaussian_kde(with_experiment_samples)
+            with_experiment_x_space = np.linspace(
+                with_experiment_samples.min(),
+                with_experiment_samples.max(),
+                1000,
+            )
+            with_experiment_y_prob_density = with_experiment_kde(
+                with_experiment_x_space
+            )
+            h2 = ax[row, col].fill_between(
+                with_experiment_x_space,
+                with_experiment_y_prob_density,
                 color="C1",
-                label="after experiment",
+                label="with experiment",
+                **POSTERIOR_DISTRIBUTION_PLOT_KWARGS,
             )
+
             h3 = ax[row, col].vlines(
                 media_param_df.filter(
                     pl.col("media_feature") == media_feature_name
@@ -206,34 +244,31 @@ def plot_experiment_posterior_vs_ground_truth(
                 color="C2",
                 label="ground truth",
             )
-            ax[row, col].set_title(
-                f"{media_feature_id + 1}{subtitle_prefix} {param.capitalize().replace('_', ' ')}"
-            )
-            ax[row, col].set_xlabel("Value")
-            ax[row, col].set_ylabel("Frequency", labelpad=10)
+            ax[row, col].set_xlabel(param.capitalize().replace("_", " "))
+            ax[row, col].set_ylabel("Probability density", labelpad=10)
 
             if len(legend_handles) == 0:
-                legend_handles = [h1[2][0], h2[2][0], h3]
+                legend_handles = [h1, h2, h3]
                 legend_labels = [
-                    "before experiment",
-                    "after experiment",
+                    "without experiment",
+                    "with experiment",
                     "ground truth",
                 ]
 
-        # Add the title of each row
-        row_axes = ax[row, :]
-        y_top = max(a.get_position().y1 for a in row_axes)
-        fig.text(
-            x=0.5,
-            y=y_top + 0.1 / len(media_feature_names),
-            s=(
-                f"{media_feature_id + 1}) Posterior distributions and Ground Truth of "
-                f"Channel {media_feature_id + 1}'s parameters"
-            ),
-            ha="center",
-            va="center",
-            fontsize=22,
-        )
+        if len(media_feature_names) > 1:
+            # Add the title of each row
+            row_axes = ax[row, :]
+            y_top = max(a.get_position().y1 for a in row_axes)
+            x_left = min(a.get_position().x0 for a in row_axes)
+            fig.text(
+                x=x_left,
+                y=y_top + 0.1 / len(media_feature_names),
+                s=(
+                    f"{MEDIA_FEATURE_SUBPLOT_TITLE_PREFIXES[media_feature_name]}"
+                    f" Channel {media_feature_id + 1} parameters"
+                ),
+                fontsize=22,
+            )
 
     fig.legend(
         handles=legend_handles,
