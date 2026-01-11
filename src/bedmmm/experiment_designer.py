@@ -52,10 +52,11 @@ class ExperimentDesigner:
             Literal["saturation", "shape", "retention_rate"]
         ] = ["saturation", "shape", "retention_rate"]
 
-        # Boundaries for the experiments (aka: experiment space)
+        # Experiment space
         self.__lower_bound: NDArray | None = None
         self.__upper_bound: NDArray | None = None
         self.__total_budget: float | None = None
+        self.__n_design_points: int = 1
 
         # Posterior samples
         self.__samples_added: bool = False
@@ -136,6 +137,7 @@ class ExperimentDesigner:
         lower_bound: NDArray,
         upper_bound: NDArray,
         total_budget: float | None = None,
+        n_design_points: int = 1,
     ) -> Self:
         """Configure the experiment space.
 
@@ -152,14 +154,17 @@ class ExperimentDesigner:
             for the experiments.
         total_budget : float | None, default None
             The total budget constraint for the optimization.
+        n_design_points : int, default 1
+            The number of design points to be optimized.
 
         """
-        assert lower_bound.shape == (self.n_media_channels,)
-        assert upper_bound.shape == (self.n_media_channels,)
+        assert lower_bound.shape == (n_design_points, self.n_media_channels)
+        assert upper_bound.shape == (n_design_points, self.n_media_channels)
 
-        self.__lower_bound = lower_bound
-        self.__upper_bound = upper_bound
+        self.__lower_bound = lower_bound.flatten()
+        self.__upper_bound = upper_bound.flatten()
         self.__total_budget = total_budget
+        self.__n_design_points = n_design_points
 
         return self
 
@@ -295,6 +300,37 @@ class ExperimentDesigner:
                     random_seed=42,
                 )
 
+    def __objective_function_multiple(self: Self, x: NDArray) -> float:
+        """Calculate objective function for finding the optimal experiment.
+
+        This objective function supports multiple design points.
+
+        Parameters
+        ----------
+        x : NDArray, shape (n_design_points, n_media_channels)
+            The current investments in the experiment
+
+        Returns
+        -------
+        float
+            The negative utility function (or minimization).
+
+        """
+        d = np.vstack(
+            [self.__last_l_week_media, x.reshape(self.__n_design_points, -1)]
+        )
+        return -self.eig_multiple(
+            d=d,
+            retention_rates=self.__retention_rates,
+            saturations=self.__saturations,
+            shapes=self.__shapes,
+            c=self.c,
+            gamma_est=self.__gamma_est,
+            baseline_est=self.__baseline_est,
+            sigma_est=self.__sigma_est,
+            random_seed=42,
+        )
+
     def find_optimal_experiment(self: Self) -> NDArray:
         """Find the optimal experiment.
 
@@ -314,17 +350,23 @@ class ExperimentDesigner:
         lb = (
             self.__lower_bound
             if self.__lower_bound is not None
-            else np.ones(self.n_media_channels) * np.inf
+            else np.ones(self.__n_design_points * self.n_media_channels)
+            * np.inf
         )
         ub = (
             self.__upper_bound
             if self.__upper_bound is not None
-            else np.ones(self.n_media_channels) * np.inf
+            else np.ones(self.__n_design_points * self.n_media_channels)
+            * np.inf
         )
 
         res = scipy.optimize.minimize(
-            fun=self.__objective_function,
-            x0=np.ones(self.n_media_channels),  # NOTE: placeholder
+            fun=(
+                self.__objective_function
+                if self.__n_design_points == 1
+                else self.__objective_function_multiple
+            ),
+            x0=np.ones(self.__n_design_points * self.n_media_channels),
             method="COBYLA",
             bounds=scipy.optimize.Bounds(
                 lb=lb,
@@ -339,13 +381,6 @@ class ExperimentDesigner:
             ]
             if self.__total_budget is not None
             else [],
-            # constraints=LinearConstraint(
-            #     A=np.ones((1, self.n_media_channels)),
-            #     lb=0.0,
-            #     ub=self.__total_budget
-            #     if self.__total_budget is not None
-            #     else np.inf,
-            # ),
         )
 
         print(res)
@@ -451,6 +486,108 @@ class ExperimentDesigner:
                 scale=sigma_est,
             ).mean(axis=1)
         ).mean()
+
+    @staticmethod
+    def eig_multiple(
+        d: NDArray,
+        retention_rates: NDArray,
+        saturations: NDArray,
+        shapes: NDArray,
+        c: NDArray,
+        gamma_est: NDArray,
+        baseline_est: float,
+        sigma_est: float,
+        random_seed: int = 0,
+    ) -> float:
+        """Estimate the expected information gain for multiple design points.
+
+        This function estimates the EIG using Nested Monte Carlo (NMC) method.
+        This function assumes that the target follows a Normal distribution.
+
+        Parameters
+        ----------
+        d : NDArray, shape (L + K - 1, M)
+            The experiment design points, containing the investments
+            of all M channels in the model along with the recorded investments
+            for the last L - 1 weeks (to calculate the carryover effects).
+        retention_rates : NDArray, shape (S1, S2, M)
+            S samples of retention rates of all M channels.
+        saturations : NDArray, shape (S1, S2, M)
+            S samples of saturations of all M channels.
+        shapes : NDArray, shape (S1, S2, M)
+            S samples of shapes of all M channels.
+        c : NDArray, shape (C, )
+            The control variables values.
+        gamma_est : NDArray, shape (C, )
+            The point estimate of the control effects.
+        baseline_est : float
+            The point estimate of the baseline value.
+        sigma_est : float
+            The point estimate of the scale for the observational
+            normal distribution.
+        random_seed : int, default 0
+            The random seed to draw samples for the target values.
+
+        Returns
+        -------
+        float
+            The estimated EIG at the design point.
+
+        """
+        np.random.seed(random_seed)
+
+        numerator = np.ones(retention_rates.shape[0])
+        denominator = np.ones(
+            (retention_rates.shape[0], retention_rates.shape[1] - 1)
+        )
+
+        # Number of design points
+        n_design_points = d.shape[0] - 12
+
+        for i in range(n_design_points):
+            d_i = d[i : i + 13, :]
+
+            y_samples = np.random.normal(
+                loc=MarketingMixModel.response_function(
+                    x=d_i,
+                    retention_rates=retention_rates[:, 0, :],
+                    saturations=saturations[:, 0, :],
+                    shapes=shapes[:, 0, :],
+                    c=c,
+                    gammas=gamma_est,
+                    baseline=baseline_est,
+                ),
+                scale=sigma_est,
+            )
+
+            numerator *= sps.norm.pdf(
+                x=y_samples,
+                loc=MarketingMixModel.response_function(
+                    x=d_i,
+                    retention_rates=retention_rates[:, 0, :],
+                    saturations=saturations[:, 0, :],
+                    shapes=shapes[:, 0, :],
+                    c=c,
+                    gammas=gamma_est,
+                    baseline=baseline_est,
+                ),
+                scale=sigma_est,
+            )
+            denominator *= sps.norm.pdf(
+                y_samples[:, np.newaxis],
+                loc=MarketingMixModel.response_function_nested_samples(
+                    x=d_i,
+                    retention_rates=retention_rates[:, 1:, :],
+                    saturations=saturations[:, 1:, :],
+                    shapes=shapes[:, 1:, :],
+                    c=c,
+                    gammas=gamma_est,
+                    baseline=baseline_est,
+                ),
+                scale=sigma_est,
+            )
+
+        return np.log(numerator / denominator.mean(axis=1)).mean()
 
     @staticmethod
     def cost_regularized_eig(
