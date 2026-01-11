@@ -43,12 +43,7 @@ def plot_posterior_vs_ground_truth(
     """
     plt.rcParams.update(
         {
-            "font.size": 18,
-            "axes.labelsize": 20,
-            "axes.titlesize": 20,
-            "legend.fontsize": 18,
-            "xtick.labelsize": 18,
-            "ytick.labelsize": 18,
+            # "font.size": 22,
             "axes.spines.top": False,
             "axes.spines.right": False,
         }
@@ -103,8 +98,11 @@ def plot_posterior_vs_ground_truth(
                 colors="C2",
                 label="ground truth",
             )
-            ax[row, col].set_xlabel(f"{param.capitalize().replace('_', ' ')}")
-            ax[row, col].set_ylabel("Probability density", labelpad=10)
+            ax[row, col].set_xlabel(
+                f"{param.capitalize().replace('_', ' ')}", size=24
+            )
+            ax[row, col].set_ylabel("Density", size=24)
+            ax[row, col].tick_params(axis="both", which="major", labelsize=22)
 
             if len(legend_handles) == 0:
                 legend_handles = [h1, h2]
@@ -122,7 +120,7 @@ def plot_posterior_vs_ground_truth(
                     f"{MEDIA_FEATURE_SUBPLOT_TITLE_PREFIXES[media_feature_name]}"
                     f" Channel {media_feature_id + 1} parameters"
                 ),
-                fontsize=22,
+                fontsize=24,
             )
 
     fig.legend(
@@ -130,6 +128,7 @@ def plot_posterior_vs_ground_truth(
         labels=legend_labels,
         loc="upper left",
         ncol=len(legend_labels),
+        fontsize=22,
     )
     plt.show()
 
@@ -160,12 +159,7 @@ def plot_experiment_posterior_vs_ground_truth(
     """
     plt.rcParams.update(
         {
-            "font.size": 18,
-            "axes.labelsize": 20,
-            "axes.titlesize": 20,
-            "legend.fontsize": 18,
-            "xtick.labelsize": 18,
-            "ytick.labelsize": 18,
+            # "font.size": 22,
             "axes.spines.top": False,
             "axes.spines.right": False,
         }
@@ -244,8 +238,11 @@ def plot_experiment_posterior_vs_ground_truth(
                 color="C2",
                 label="ground truth",
             )
-            ax[row, col].set_xlabel(param.capitalize().replace("_", " "))
-            ax[row, col].set_ylabel("Probability density", labelpad=10)
+            ax[row, col].set_xlabel(
+                param.capitalize().replace("_", " "), size=24
+            )
+            ax[row, col].set_ylabel("Density", size=24)
+            ax[row, col].tick_params(axis="both", which="major", labelsize=22)
 
             if len(legend_handles) == 0:
                 legend_handles = [h1, h2, h3]
@@ -262,12 +259,12 @@ def plot_experiment_posterior_vs_ground_truth(
             x_left = min(a.get_position().x0 for a in row_axes)
             fig.text(
                 x=x_left,
-                y=y_top + 0.1 / len(media_feature_names),
+                y=y_top + 0.05 / len(media_feature_names),
                 s=(
                     f"{MEDIA_FEATURE_SUBPLOT_TITLE_PREFIXES[media_feature_name]}"
-                    f" Channel {media_feature_id + 1} parameters"
+                    f" Channel {media_feature_id + 1}"
                 ),
-                fontsize=22,
+                fontsize=24,
             )
 
     fig.legend(
@@ -275,5 +272,6 @@ def plot_experiment_posterior_vs_ground_truth(
         labels=legend_labels,
         loc="upper left",
         ncol=len(legend_labels),
+        fontsize=22,
     )
     plt.show()
