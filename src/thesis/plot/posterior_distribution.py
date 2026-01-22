@@ -6,16 +6,14 @@ import numpy as np
 import polars as pl
 from scipy.stats import gaussian_kde
 
-POSTERIOR_DISTRIBUTION_PLOT_KWARGS: dict[str, float] = {
-    "alpha": 0.4,
-}
-
-MEDIA_FEATURE_SUBPLOT_TITLE_PREFIXES: dict[str, str] = {
-    "media_0": "(a)",
-    "media_1": "(b)",
-    "media_2": "(c)",
-    "media_3": "(d)",
-}
+from thesis.plot.config import (
+    LABEL_FONT_SIZE,
+    LEGEND_FONT_SIZE,
+    MEDIA_FEATURE_SUBPLOT_TITLE_PREFIXES,
+    POSTERIOR_DISTRIBUTION_PLOT_KWARGS,
+    TICK_FONT_SIZE,
+    TITLE_FONT_SIZE,
+)
 
 
 def plot_posterior_vs_ground_truth(
@@ -99,10 +97,12 @@ def plot_posterior_vs_ground_truth(
                 label="ground truth",
             )
             ax[row, col].set_xlabel(
-                f"{param.capitalize().replace('_', ' ')}", size=24
+                f"{param.capitalize().replace('_', ' ')}", size=LABEL_FONT_SIZE
             )
-            ax[row, col].set_ylabel("Density", size=24)
-            ax[row, col].tick_params(axis="both", which="major", labelsize=22)
+            ax[row, col].set_ylabel("Density", size=LABEL_FONT_SIZE)
+            ax[row, col].tick_params(
+                axis="both", which="major", labelsize=TICK_FONT_SIZE
+            )
 
             if len(legend_handles) == 0:
                 legend_handles = [h1, h2]
@@ -120,7 +120,7 @@ def plot_posterior_vs_ground_truth(
                     f"{MEDIA_FEATURE_SUBPLOT_TITLE_PREFIXES[media_feature_name]}"
                     f" Channel {media_feature_id + 1} parameters"
                 ),
-                fontsize=24,
+                fontsize=TITLE_FONT_SIZE,
             )
 
     fig.legend(
@@ -128,7 +128,7 @@ def plot_posterior_vs_ground_truth(
         labels=legend_labels,
         loc="upper left",
         ncol=len(legend_labels),
-        fontsize=22,
+        fontsize=LEGEND_FONT_SIZE,
     )
     plt.show()
 
@@ -239,10 +239,12 @@ def plot_experiment_posterior_vs_ground_truth(
                 label="ground truth",
             )
             ax[row, col].set_xlabel(
-                param.capitalize().replace("_", " "), size=24
+                param.capitalize().replace("_", " "), size=LABEL_FONT_SIZE
             )
-            ax[row, col].set_ylabel("Density", size=24)
-            ax[row, col].tick_params(axis="both", which="major", labelsize=22)
+            ax[row, col].set_ylabel("Density", size=LABEL_FONT_SIZE)
+            ax[row, col].tick_params(
+                axis="both", which="major", labelsize=TICK_FONT_SIZE
+            )
 
             if len(legend_handles) == 0:
                 legend_handles = [h1, h2, h3]
@@ -264,7 +266,7 @@ def plot_experiment_posterior_vs_ground_truth(
                     f"{MEDIA_FEATURE_SUBPLOT_TITLE_PREFIXES[media_feature_name]}"
                     f" Channel {media_feature_id + 1}"
                 ),
-                fontsize=24,
+                fontsize=TITLE_FONT_SIZE,
             )
 
     fig.legend(
@@ -272,6 +274,6 @@ def plot_experiment_posterior_vs_ground_truth(
         labels=legend_labels,
         loc="upper left",
         ncol=len(legend_labels),
-        fontsize=22,
+        fontsize=LEGEND_FONT_SIZE,
     )
     plt.show()

@@ -5,6 +5,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 
+from thesis.plot.config import (
+    LABEL_FONT_SIZE,
+    LEGEND_FONT_SIZE,
+    TICK_FONT_SIZE,
+    TITLE_FONT_SIZE,
+)
+
 
 def plot_generated_data_on_response_curve(
     data: pl.DataFrame,
@@ -56,10 +63,10 @@ def plot_generated_data_on_response_curve(
         )
         ax[i].set_title(
             f"Saturation curve of {feature.capitalize().replace('_', ' ')}",
-            size=24,
+            size=TITLE_FONT_SIZE,
         )
-        ax[i].set_xlabel("Media investments (x)", size=24)
-        ax[i].set_ylabel("Diminishing returns", size=24)
+        ax[i].set_xlabel("Media investments (x)", size=LABEL_FONT_SIZE)
+        ax[i].set_ylabel("Diminishing returns", size=LABEL_FONT_SIZE)
 
     plt.plot()
 
@@ -141,10 +148,10 @@ def plot_posterior_response_curve(
         color="C1",
     )
 
-    plt.xlabel("Media investments (x)", size=24)
-    plt.ylabel("Diminishing returns", size=24)
-    plt.legend(fontsize=22)
-    plt.tick_params(axis="both", which="major", labelsize=22)
+    plt.xlabel("Media investments (x)", size=LABEL_FONT_SIZE)
+    plt.ylabel("Diminishing returns", size=LABEL_FONT_SIZE)
+    plt.legend(fontsize=LEGEND_FONT_SIZE)
+    plt.tick_params(axis="both", which="major", labelsize=TICK_FONT_SIZE)
     plt.show()
 
 
@@ -254,13 +261,15 @@ def plot_posterior_response_curve_multiple(
             legend_handles.extend([h1, h2[0]])
             legend_labels.extend(["94% HDI", "Ground truth"])
 
-        ax[row, col].set_xlabel("Media investments (x)", size=24)
-        ax[row, col].set_ylabel("Diminishing Returns", size=24)
-        ax[row, col].tick_params(axis="both", which="major", labelsize=22)
+        ax[row, col].set_xlabel("Media investments (x)", size=LABEL_FONT_SIZE)
+        ax[row, col].set_ylabel("Diminishing Returns", size=LABEL_FONT_SIZE)
+        ax[row, col].tick_params(
+            axis="both", which="major", labelsize=TICK_FONT_SIZE
+        )
         ax[row, col].set_title(
             f"{subplot_title_prefix} Channel {media_feature_id + 1}",
             loc="left",
-            size=24,
+            size=TITLE_FONT_SIZE,
         )
 
     fig.legend(
@@ -268,7 +277,7 @@ def plot_posterior_response_curve_multiple(
         labels=legend_labels,
         loc="upper left",
         ncol=len(legend_labels),
-        fontsize=22,
+        fontsize=LEGEND_FONT_SIZE,
     )
     plt.show()
 
@@ -383,10 +392,10 @@ def plot_experiment_posterior_response_curve(
         color="C1",
     )
 
-    plt.xlabel("Media investments (x)", size=24)
-    plt.ylabel("Diminishing returns", size=24)
-    plt.tick_params(axis="both", which="major", labelsize=22)
-    plt.legend(fontsize=22)
+    plt.xlabel("Media investments (x)", size=LABEL_FONT_SIZE)
+    plt.ylabel("Diminishing returns", size=LABEL_FONT_SIZE)
+    plt.tick_params(axis="both", which="major", labelsize=TICK_FONT_SIZE)
+    plt.legend(fontsize=LEGEND_FONT_SIZE)
     plt.show()
 
 
@@ -534,14 +543,16 @@ def plot_experiment_posterior_response_curve_multiple(
                 ]
             )
 
-        ax[row, col].set_xlabel("Media investments (x)", size=24)
-        ax[row, col].set_ylabel("Diminishing returns", size=24)
-        ax[row, col].tick_params(axis="both", which="major", labelsize=22)
+        ax[row, col].set_xlabel("Media investments (x)", size=LABEL_FONT_SIZE)
+        ax[row, col].set_ylabel("Diminishing returns", size=LABEL_FONT_SIZE)
+        ax[row, col].tick_params(
+            axis="both", which="major", labelsize=TICK_FONT_SIZE
+        )
         ax[row, col].set_title(
             f"{subplot_title_prefix} Channel {media_feature_id + 1}",
             loc="left",
             pad=10,
-            size=24,
+            size=TITLE_FONT_SIZE,
         )
 
     fig.legend(
@@ -549,6 +560,6 @@ def plot_experiment_posterior_response_curve_multiple(
         labels=legend_labels,
         loc="upper left",
         ncol=len(legend_labels),
-        fontsize=22,
+        fontsize=LEGEND_FONT_SIZE,
     )
     plt.show()
