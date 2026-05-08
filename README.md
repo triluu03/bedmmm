@@ -1,6 +1,8 @@
 # Bayesian experimental design (BED) in Marketing Mix Modeling (MMM)
 
-This repository contains source code and the experiments (implemented using Jupyter Notebook) for the Data Science Master thesis titled "Bayesian Experimental Design in Marketing Mix Modeling" at the University of Helsinki. The official PDF file of the thesis can be found at: https://helka.helsinki.fi/permalink/358UOH_INST/17stqfq/alma9935253567406253
+This repository contains source code and the experiments (implemented using Jupyter Notebook) for the Data Science Master thesis titled "Bayesian Experimental Design in Marketing Mix Modeling" at the University of Helsinki.
+
+The official PDF file of the thesis can be found at: https://helka.helsinki.fi/permalink/358UOH_INST/17stqfq/alma9935253567406253.
 
 For more information, feel free to contact me via email:
 - University email: tri.luu@helsinki.fi
